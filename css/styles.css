@@ -1,0 +1,540 @@
+/* ═══════════════════════════════════════════
+   Expense Tracker — Styles
+   ═══════════════════════════════════════════ */
+
+:root {
+  --bg: #0a0a0c;
+  --card: rgba(255, 255, 255, 0.025);
+  --border: rgba(255, 255, 255, 0.04);
+  --text: #d4d4d8;
+  --text2: rgba(255, 255, 255, 0.28);
+  --text3: rgba(255, 255, 255, 0.15);
+  --white: #fafafa;
+  --accent: #7c3aed;
+  --accent2: #c4b5fd;
+  --green: #16a34a;
+  --red: #f87171;
+}
+
+/* ── Reset ── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Newsreader", "Georgia", serif;
+  min-height: 100dvh;
+  max-width: 520px;
+  margin: 0 auto;
+  padding-bottom: 100px;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Utility ── */
+.o { font-family: "Outfit", sans-serif; }
+.hidden { display: none !important; }
+.flex1 { flex: 1; }
+
+/* ── Header ── */
+.hd {
+  padding: max(env(safe-area-inset-top), 20px) 20px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--white);
+  font-family: "Outfit", sans-serif;
+  letter-spacing: -0.03em;
+}
+.settings-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* ── Card ── */
+.card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin: 0 14px 10px;
+  border: 1px solid var(--border);
+}
+
+/* ── Typography ── */
+.lbl {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text2);
+  margin-bottom: 4px;
+  font-family: "Outfit", sans-serif;
+}
+.big {
+  font-size: 30px;
+  font-weight: 300;
+  color: var(--white);
+  letter-spacing: -0.02em;
+  font-family: "Outfit", sans-serif;
+}
+.sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.2);
+  margin-top: 6px;
+}
+.empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text3);
+  font-size: 13px;
+  font-family: "Outfit", sans-serif;
+}
+
+/* ── Inputs ── */
+.inp {
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-size: 15px;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border 0.15s;
+}
+.inp:focus {
+  border-color: rgba(124, 58, 237, 0.4);
+}
+input[type="date"] {
+  color-scheme: dark;
+}
+
+/* ── Chips ── */
+.chip {
+  padding: 7px 13px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: "Outfit", sans-serif;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.chip.on {
+  border-width: 1.5px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+/* ── Buttons ── */
+.btn-p {
+  padding: 13px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  font-family: "Outfit", sans-serif;
+  background: var(--accent);
+  color: #fff;
+  width: 100%;
+  margin-top: 2px;
+  transition: opacity 0.15s;
+}
+.btn-p:disabled {
+  background: rgba(124, 58, 237, 0.25);
+  cursor: default;
+}
+.btn-p:active:not(:disabled) {
+  opacity: 0.8;
+}
+
+.sm-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: "Outfit", sans-serif;
+  transition: background 0.1s;
+}
+.sm-btn:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.del-btn {
+  background: rgba(239, 68, 68, 0.08);
+  border: none;
+  color: var(--red);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: "Outfit", sans-serif;
+}
+
+/* ── FAB ── */
+.fab {
+  position: fixed;
+  bottom: 84px;
+  right: calc(50% - 26px);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 26px;
+  cursor: pointer;
+  box-shadow: 0 4px 24px rgba(124, 58, 237, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  font-family: "Outfit", sans-serif;
+  transition: transform 0.15s;
+}
+.fab:active {
+  transform: scale(0.92);
+}
+
+/* ── Bottom nav ── */
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(10, 10, 12, 0.96);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 max(env(safe-area-inset-bottom), 8px);
+  z-index: 40;
+}
+.nav button {
+  flex: 1;
+  max-width: 110px;
+  padding: 7px 0;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.22);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-family: "Outfit", sans-serif;
+  transition: color 0.15s;
+}
+.nav button.on {
+  color: var(--accent2);
+}
+.nav button span {
+  font-size: 18px;
+}
+
+/* ── Overlay / Sheet ── */
+.overlay-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fadeIn 0.2s;
+}
+.sheet {
+  background: #141416;
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 520px;
+  padding: 22px 18px max(env(safe-area-inset-bottom), 18px);
+  max-height: 90dvh;
+  overflow-y: auto;
+  animation: slideUp 0.25s ease;
+}
+.sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.sheet-header h2 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--white);
+}
+.close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+/* ── Form ── */
+.form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.form-row {
+  display: flex;
+  gap: 10px;
+}
+.form-delete {
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  border-radius: 10px;
+}
+.preview {
+  background: rgba(196, 181, 253, 0.06);
+  border-radius: 10px;
+  padding: 11px 14px;
+  border: 1px solid rgba(196, 181, 253, 0.1);
+}
+
+/* ── Progress bar ── */
+.bar-track {
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+/* ── Dashboard ── */
+.cat-row {
+  margin-bottom: 13px;
+}
+.cat-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+/* ── Expense row ── */
+.exp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.exp-row:active {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+}
+.exp-row-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.exp-row-right {
+  text-align: right;
+}
+.exp-icon {
+  font-size: 18px;
+}
+.exp-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #e4e4e7;
+}
+.exp-meta {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.2);
+}
+.exp-amount {
+  font-size: 14px;
+  font-weight: 600;
+}
+.exp-monthly {
+  font-size: 10px;
+}
+
+/* ── List view ── */
+.filter-bar {
+  padding: 2px 14px 8px;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.filter-bar::-webkit-scrollbar {
+  display: none;
+}
+.list-card {
+  margin: 0 0 8px;
+  padding: 13px 15px;
+}
+.list-card-top {
+  display: flex;
+  justify-content: space-between;
+}
+.list-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+.amort-bar {
+  margin-top: 9px;
+}
+.amort-bar-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Amortization view ── */
+.amort-timeline-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+.active-amort-row {
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+.active-amort-top {
+  display: flex;
+  justify-content: space-between;
+}
+.active-amort-sub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.2);
+  margin-top: 2px;
+}
+
+/* ── Settings ── */
+.tools-row {
+  display: flex;
+  gap: 8px;
+}
+.tool-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  font-family: "Outfit", sans-serif;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+.tool-btn:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+.tool-btn.danger {
+  color: var(--red);
+  border-color: rgba(239, 68, 68, 0.15);
+}
+.settings-info {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1.6;
+}
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  top: max(env(safe-area-inset-top), 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--green);
+  color: #fff;
+  padding: 9px 22px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 200;
+  font-family: "Outfit", sans-serif;
+  box-shadow: 0 4px 16px rgba(22, 163, 74, 0.3);
+  animation: fadeIn 0.2s;
+}
+
+/* ── Sync bar ── */
+.sync-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.25);
+}
+.sync-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.sync-dot.online {
+  background: var(--green);
+}
+.sync-dot.offline {
+  background: var(--red);
+}
+.sync-dot.syncing {
+  background: var(--accent2);
+  animation: pulse 0.8s ease infinite;
+}
+
+/* ── Animations ── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}

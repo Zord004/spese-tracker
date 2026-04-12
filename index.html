@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Spese">
+  <meta name="theme-color" content="#0a0a0c">
+  <title>Le mie spese</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Newsreader:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="hd">
+    <div class="h1">💰 Le mie spese</div>
+    <button class="settings-btn" data-nav="settings">⚙️</button>
+  </div>
+
+  <!-- Sync status bar -->
+  <div class="sync-bar">
+    <div class="sync-dot online" id="sync-dot"></div>
+    <span id="sync-label" class="o">Connessione...</span>
+  </div>
+
+  <!-- View containers -->
+  <div id="v-dash"></div>
+  <div id="v-list" class="hidden"></div>
+  <div id="v-amort" class="hidden"></div>
+  <div id="v-settings" class="hidden"></div>
+
+  <!-- Form overlay -->
+  <div id="form-overlay" class="hidden"></div>
+
+  <!-- Toast -->
+  <div id="toast-el" class="toast hidden"></div>
+
+  <!-- FAB -->
+  <button class="fab" id="fab-btn">+</button>
+
+  <!-- Bottom navigation -->
+  <div class="nav">
+    <button class="on" data-nav="dash"><span>📊</span>Riepilogo</button>
+    <button data-nav="list"><span>📋</span>Spese</button>
+    <button data-nav="amort"><span>📈</span>Ammort.</button>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
