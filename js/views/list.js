@@ -1,86 +1,91 @@
-import { CATEGORIES } from "../constants.js";
-import {
-  getCategoryById,
-  amortizationProgress,
-} from "../models.js";
-import { formatCurrency, formatDate, progressBar } from "../utils.js";
+import { expenseCategories } from "../catalog.js";
+import { getCategoryById, isIncome } from "../models.js";
+import { escapeHtml, formatCurrency, formatDate, monthKey, monthLabel } from "../utils.js";
 
-/**
- * Render the expense list view.
- * @param {HTMLElement} container
- * @param {Array} expenses
- * @param {string} filterCat - "all" or category id
- * @param {object} callbacks - { onEditExpense, onDeleteExpense, onFilterChange }
- */
-export function renderList(container, expenses, filterCat, callbacks) {
-  const filtered =
-    filterCat === "all"
-      ? expenses
-      : expenses.filter((e) => e.cat === filterCat);
-  const sorted = [...filtered].sort(
-    (a, b) => new Date(b.date) - new Date(a.date)
-  );
+export function renderList(container, expenses, filterCat, searchQuery, callbacks) {
+  let filtered = filterCat === "all" ? expenses
+    : filterCat === "entrate" ? expenses.filter(isIncome)
+    : filterCat === "spese" ? expenses.filter(e => !isIncome(e))
+    : expenses.filter(e => e.cat === filterCat);
 
-  const filterBar = `
-    <div class="filter-bar">
-      <button class="chip ${filterCat === "all" ? "on" : ""}" data-filter="all"
-        ${filterCat === "all" ? 'style="border-color:#c4b5fd;background:rgba(196,181,253,0.08);color:#c4b5fd"' : ""}>Tutte</button>
-      ${CATEGORIES.map((c) => {
-        const on = filterCat === c.id;
-        return `<button class="chip ${on ? "on" : ""}" data-filter="${c.id}"
-          ${on ? `style="border-color:${c.color};background:${c.color}14;color:${c.color}"` : ""}>${c.icon}</button>`;
-      }).join("")}
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filtered = filtered.filter(e =>
+      e.name.toLowerCase().includes(q) ||
+      (e.note || "").toLowerCase().includes(q) ||
+      (e.cat || "").toLowerCase().includes(q) ||
+      (e.location || "").toLowerCase().includes(q)
+    );
+  }
+
+  const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  // Raggruppa per mese
+  const groups = {};
+  sorted.forEach(e => {
+    const mk = e.date ? monthKey(e.date) : "—";
+    (groups[mk] = groups[mk] || []).push(e);
+  });
+
+  const filterChips = [
+    { v: "all", label: "Tutte" },
+    { v: "entrate", label: "Entrate" },
+    { v: "spese", label: "Spese" },
+    ...expenseCategories().map(c => ({ v: c.id, label: c.id, color: c.color })),
+  ];
+
+  container.innerHTML = `
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search-input" type="text" placeholder="Cerca movimento, luogo, nota…" value="${escapeHtml(searchQuery || "")}" autocomplete="off">
     </div>
+    <div class="filters">
+      ${filterChips.map(f => `<button class="fchip ${filterCat === f.v ? "on" : ""}" data-filter="${escapeHtml(f.v)}">${f.color ? `<span class="dot" style="background:${f.color}"></span>` : ""}${escapeHtml(f.label)}</button>`).join("")}
+    </div>
+    ${sorted.length !== expenses.length ? `<div class="result-count">${sorted.length} moviment${sorted.length === 1 ? "o" : "i"}</div>` : ""}
+    ${!sorted.length ? `
+      <div class="card" style="margin-top:8px"><div class="empty"><span class="big">Nessun risultato</span>Nessun movimento corrisponde ai filtri.</div></div>
+    ` : Object.entries(groups).map(([mk, items]) => `
+      <div class="month-sep">${mk === "—" ? "Senza data" : monthLabel(mk)}</div>
+      <div class="card">${items.map(e => renderRow(e)).join("")}</div>
+    `).join("")}
   `;
 
-  const items =
-    sorted.length === 0
-      ? '<div class="empty" style="padding:36px">Nessuna spesa</div>'
-      : sorted.map((e) => {
-          const c = getCategoryById(e.cat);
-          const { elapsed, total, ratio } = amortizationProgress(e);
-          return `
-            <div class="card list-card">
-              <div class="list-card-top">
-                <div class="exp-row-left">
-                  <span style="font-size:22px">${c.icon}</span>
-                  <div>
-                    <div class="exp-name" style="font-weight:600">${e.name}</div>
-                    <div class="exp-meta o">${formatDate(e.date)}${e.note ? ` · ${e.note}` : ""}</div>
-                  </div>
-                </div>
-                <div class="exp-row-right">
-                  <div style="font-size:15px;font-weight:700" class="o">${formatCurrency(e.amount)}</div>
-                  ${e.am > 1 ? `<div style="font-size:11px;color:${c.color};font-weight:600" class="o">${formatCurrency(e.amount / e.am)}/m</div>` : ""}
-                </div>
-              </div>
-              ${e.am > 1 ? `
-                <div class="amort-bar">
-                  <div class="amort-bar-header">
-                    <span class="o">Ammortamento</span>
-                    <span class="o">${elapsed}/${total} (${Math.round(ratio * 100)}%)</span>
-                  </div>
-                  ${progressBar(ratio, c.color)}
-                </div>
-              ` : ""}
-              <div class="list-actions">
-                <button class="sm-btn" data-edit="${e.id}">Modifica</button>
-                <button class="del-btn" data-delete="${e.id}">Elimina</button>
-              </div>
-            </div>
-          `;
-        }).join("");
+  const inp = container.querySelector("#search-input");
+  let db;
+  inp?.addEventListener("input", () => { clearTimeout(db); db = setTimeout(() => callbacks.onSearchChange(inp.value), 200); });
+  container.querySelectorAll("[data-filter]").forEach(b => b.addEventListener("click", () => callbacks.onFilterChange(b.dataset.filter)));
+  container.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => callbacks.onEditExpense(b.dataset.edit)));
+}
 
-  container.innerHTML = `${filterBar}<div style="padding:0 14px">${items}</div>`;
+function renderRow(e) {
+  const inc = isIncome(e);
+  const c = getCategoryById(e.cat, inc ? "entrata" : "spesa");
+  const initial = (e.name || "?").trim().charAt(0).toUpperCase();
+  const tags = [];
+  if (e.am > 1) tags.push(`rate ${e.am}m`);
+  else if (e.recur && e.recur !== "Nessuna") tags.push(recurLabel(e.recur));
+  if (e.detraibile) tags.push(`detr. ${e.detrazionePct}%`);
+  const tag = tags.length ? `<span class="tx-tag">${escapeHtml(tags[0])}</span>` : "";
 
-  // Bind events
-  container.querySelectorAll("[data-filter]").forEach((btn) => {
-    btn.addEventListener("click", () => callbacks.onFilterChange(btn.dataset.filter));
-  });
-  container.querySelectorAll("[data-edit]").forEach((btn) => {
-    btn.addEventListener("click", () => callbacks.onEditExpense(btn.dataset.edit));
-  });
-  container.querySelectorAll("[data-delete]").forEach((btn) => {
-    btn.addEventListener("click", () => callbacks.onDeleteExpense(btn.dataset.delete));
-  });
+  return `<div class="txrow" data-edit="${escapeHtml(e.id)}">
+    <div class="tx-ico" ${inc ? 'style="color:var(--credit)"' : ""}>${escapeHtml(initial)}<span class="cat-dot" style="background:${c.color}"></span></div>
+    <div class="tx-main">
+      <div class="tx-name">${escapeHtml(e.name)}${tag}</div>
+      <div class="tx-meta">${formatDate(e.date)} · ${escapeHtml(e.cat)}${e.location ? ` · ${escapeHtml(e.location)}` : ""}</div>
+    </div>
+    <div class="tx-amt">
+      <div class="a ${inc ? "credit" : ""} tnum">${inc ? "+ " : ""}${formatCurrency(e.amount)}</div>
+      ${e.am > 1 ? `<div class="s tnum">${formatCurrency(e.amount / e.am)}/mese</div>` : ""}
+    </div>
+  </div>`;
+}
+
+function recurLabel(r) {
+  if (r === "Giornaliera") return "giorn.";
+  if (r === "Mensile") return "mens.";
+  if (r === "Trimestrale") return "trim.";
+  if (r === "Annuale") return "annuale";
+  if (typeof r === "string" && r.startsWith("Ogni")) return r.replace("Ogni ", "").replace(" mesi", "m");
+  return r;
 }

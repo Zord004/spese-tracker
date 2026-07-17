@@ -1,0 +1,20 @@
+# Deploy su Render (render.com). Railway e Fly.io funzionano in modo simile.
+# Le variabili marcate sync:false vanno inserite a mano nella dashboard.
+services:
+  - type: web
+    name: spese-tracker
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: node server/index.js
+    envVars:
+      - key: NOTION_TOKEN
+        sync: false
+      - key: NOTION_DATABASE_ID
+        sync: false
+      - key: BASIC_AUTH_USER
+        sync: false
+      - key: BASIC_AUTH_PASS
+        sync: false
+      - key: HOST
+        value: 0.0.0.0

@@ -1,91 +1,20 @@
-/**
- * Format a number as EUR currency string.
- * @param {number} n
- * @returns {string}
- */
-export function formatCurrency(n) {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(n);
+export function escapeHtml(s) { return typeof s !== "string" ? "" : s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+export function formatCurrency(n) { return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: Math.abs(n) >= 1000 ? 0 : 2 }).format(n); }
+export function formatCurrencyFull(n) { return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n); }
+export function monthKey(d) { const t = new Date(d); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}`; }
+export function monthLabel(k) { const [y, m] = k.split("-"); return ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"][+m-1] + " " + y; }
+export function monthShort(k) { const [, m] = k.split("-"); return ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"][+m-1]; }
+export function addMonths(d, n) { const t = new Date(d); t.setMonth(t.getMonth() + n); return t; }
+export function todayISO() { return new Date().toISOString().split("T")[0]; }
+export function currentMonthKey() { return monthKey(new Date().toISOString()); }
+export function currentYear() { return new Date().getFullYear(); }
+export function formatDate(d) {
+  const date = new Date(d);
+  const now = new Date();
+  const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Oggi";
+  if (diffDays === 1) return "Ieri";
+  if (diffDays < 7) return `${diffDays}g fa`;
+  return date.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
 }
-
-/**
- * Return a "YYYY-MM" key for a given ISO date string.
- * @param {string} dateStr - ISO date string
- * @returns {string}
- */
-export function monthKey(dateStr) {
-  const d = new Date(dateStr);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-/**
- * Human-readable label for a month key ("2025-03" → "Mar 2025").
- * @param {string} key
- * @returns {string}
- */
-export function monthLabel(key) {
-  const [y, m] = key.split("-");
-  const names = [
-    "Gen", "Feb", "Mar", "Apr", "Mag", "Giu",
-    "Lug", "Ago", "Set", "Ott", "Nov", "Dic",
-  ];
-  return `${names[+m - 1]} ${y}`;
-}
-
-/**
- * Add n months to a date string and return the new Date.
- * @param {string} dateStr
- * @param {number} n
- * @returns {Date}
- */
-export function addMonths(dateStr, n) {
-  const d = new Date(dateStr);
-  d.setMonth(d.getMonth() + n);
-  return d;
-}
-
-/**
- * Today's date as "YYYY-MM-DD".
- * @returns {string}
- */
-export function todayISO() {
-  return new Date().toISOString().split("T")[0];
-}
-
-/**
- * Current month key.
- * @returns {string}
- */
-export function currentMonthKey() {
-  return monthKey(new Date().toISOString());
-}
-
-/**
- * Format a date string to Italian locale.
- * @param {string} dateStr
- * @returns {string}
- */
-export function formatDate(dateStr) {
-  return new Date(dateStr).toLocaleDateString("it-IT");
-}
-
-/**
- * Generate a short unique ID.
- * @returns {string}
- */
-export function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-}
-
-/**
- * Render a progress bar HTML string.
- * @param {number} ratio - 0..1
- * @param {string} color - CSS color
- * @returns {string}
- */
-export function progressBar(ratio, color) {
-  const pct = Math.min(ratio * 100, 100);
-  return `<div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>`;
-}
+export function formatDateLong(d) { return new Date(d).toLocaleDateString("it-IT"); }

@@ -2,55 +2,57 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1c3d5c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Spese">
-  <meta name="theme-color" content="#0a0a0c">
-  <title>Le mie spese</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Newsreader:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="css/styles.css">
+  <title>Spese · conto personale</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.svg">
+  <link rel="apple-touch-icon" href="icons/icon-192.svg">
+  <link rel="stylesheet" href="css/styles.css?v=92">
+  <script src="js/boot.js?v=92"></script>
 </head>
 <body>
+  <header class="app-header">
+    <div class="header-row">
+      <div class="brand">
+        <div class="brand-mark">S</div>
+        <div class="brand-name">Spese<em> · conto personale</em></div>
+      </div>
+      <button class="header-btn" data-nav="settings" aria-label="Impostazioni">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+    <div class="sync-bar"><span class="sync-dot syncing" id="sync-dot"></span><span id="sync-label">Caricamento…</span></div>
+  </header>
 
-  <!-- Header -->
-  <div class="hd">
-    <div class="h1">💰 Le mie spese</div>
-    <button class="settings-btn" data-nav="settings">⚙️</button>
-  </div>
+  <main>
+    <div id="v-home"></div>
+    <div id="v-list" class="hidden"></div>
+    <div id="v-analytics" class="hidden"></div>
+    <div id="v-settings" class="hidden"></div>
+  </main>
 
-  <!-- Sync status bar -->
-  <div class="sync-bar">
-    <div class="sync-dot online" id="sync-dot"></div>
-    <span id="sync-label" class="o">Connessione...</span>
-  </div>
+  <button class="fab" id="fab-btn" aria-label="Aggiungi movimento">+</button>
 
-  <!-- View containers -->
-  <div id="v-dash"></div>
-  <div id="v-list" class="hidden"></div>
-  <div id="v-amort" class="hidden"></div>
-  <div id="v-settings" class="hidden"></div>
+  <nav class="nav">
+    <button class="nav-btn on" data-nav="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Conto</button>
+    <button class="nav-btn" data-nav="list">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Movimenti</button>
+    <button class="nav-btn" data-nav="analytics">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Analisi</button>
+    <button class="nav-btn" data-nav="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Altro</button>
+  </nav>
 
-  <!-- Form overlay -->
   <div id="form-overlay" class="hidden"></div>
-
-  <!-- Toast -->
+  <div id="tax-overlay" class="hidden"></div>
   <div id="toast-el" class="toast hidden"></div>
 
-  <!-- FAB -->
-  <button class="fab" id="fab-btn">+</button>
-
-  <!-- Bottom navigation -->
-  <div class="nav">
-    <button class="on" data-nav="dash"><span>📊</span>Riepilogo</button>
-    <button data-nav="list"><span>📋</span>Spese</button>
-    <button data-nav="amort"><span>📈</span>Ammort.</button>
-  </div>
-
-  <script type="module" src="js/app.js"></script>
+  <script src="js/vendor/localforage.min.js"></script>
+  <script type="module" src="js/app.js?v=92"></script>
 </body>
 </html>

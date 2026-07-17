@@ -1,109 +1,76 @@
-# 💰 Expense Tracker
+# Spese — conto personale (v9.2)
 
-Expense tracker locale con ammortamento e sincronizzazione Notion.
+Tracker di spese personali con sincronizzazione su Notion.
+Backend Node.js/Express, frontend vanilla JS.
 
-## Architettura
+## Novità v9.2
 
-```
-spese-tracker/
-├── index.html                 ← Entry point (solo markup)
-├── css/styles.css             ← Stili separati
-├── js/
-│   ├── app.js                 ← Controller (routing, orchestrazione)
-│   ├── constants.js           ← Configurazione (categorie, opzioni)
-│   ├── utils.js               ← Funzioni pure (formatting, date, uid)
-│   ├── store.js               ← Persistenza (Notion API + localStorage fallback)
-│   ├── models.js              ← Business logic (ammortamenti, aggregazioni)
-│   └── views/
-│       ├── dashboard.js       ← Vista riepilogo
-│       ├── list.js            ← Lista spese con filtri
-│       ├── amortization.js    ← Timeline ammortamenti
-│       ├── settings.js        ← Impostazioni e gestione dati
-│       └── form.js            ← Bottom sheet aggiungi/modifica
-├── server/
-│   └── index.js               ← Express server (ponte con Notion API)
-├── package.json
-├── .env.example
-└── README.md
-```
+**Storage — IndexedDB.** La cache dei movimenti, la coda di sincronizzazione
+offline e la geocache ora usano IndexedDB (via `localforage`, vendorizzato in
+`js/vendor/`) invece di `localStorage`: scritture asincrone che non bloccano
+l'interfaccia e nessun limite pratico di dimensione. Le impostazioni scalari
+(tema, budget, entrata) restano su localStorage. La migrazione dai dati vecchi
+è automatica al primo avvio.
 
-### Separation of Concerns
+**Schema dinamico da Notion.** Il server legge le categorie dallo schema del
+database all'avvio e le tiene in cache. Se aggiungi una categoria su Notion,
+premi *Altro → Dati → "Aggiorna schema da Notion"*: l'app la rileva senza
+riavviare il server. Alle categorie nuove viene assegnato un colore in automatico.
 
-| Layer | File | Responsabilità |
-|-------|------|----------------|
-| **View** | `views/*.js` | Rendering HTML, binding eventi UI |
-| **Controller** | `app.js` | Routing, orchestrazione tra views e store |
-| **Model** | `models.js` | Calcoli ammortamento, aggregazioni, logica di business |
-| **Store** | `store.js` | Persistenza dati (Notion primary, localStorage cache) |
-| **Config** | `constants.js` | Categorie, opzioni ammortamento, chiavi storage |
-| **Utils** | `utils.js` | Funzioni pure senza side-effects |
-| **Server** | `server/index.js` | REST API che fa da ponte con Notion SDK |
+**Barra budget spesa variabile.** In *Altro → Finanze* puoi impostare un limite
+di spesa variabile mensile; nell'intestazione del conto compare una barra che si
+riempie (navy → ottone → rosso quando sfori).
 
-## Setup
+**Grafico tasso di risparmio.** In *Analisi → Andamento*, un grafico a barre
+mostra il tasso di risparmio degli ultimi 6 mesi (richiede l'entrata mensile
+impostata). Disegnato in SVG, nessuna dipendenza aggiuntiva.
 
-### 1. Installa dipendenze
+**Docker & hosting.** `Dockerfile` + `docker-compose.yml` per un setup pulito, e
+`render.yaml` per il deploy su Render (Railway/Fly simili). Basic Auth opzionale
+per proteggere l'app se la esponi su internet.
+
+## Setup locale
 
 ```bash
 npm install
-```
-
-### 2. Crea una Notion Integration
-
-1. Vai su [notion.so/my-integrations](https://www.notion.so/my-integrations)
-2. Clicca **"New integration"**
-3. Dai un nome (es. "Spese Tracker")
-4. Seleziona il workspace dove hai il database
-5. Copia il **Internal Integration Secret** (`secret_...`)
-
-### 3. Connetti il database alla integration
-
-1. Apri il database "💰 Le mie spese" su Notion
-2. Clicca **⋯** (tre puntini) in alto a destra → **Connections** → **Connect to** → seleziona la tua integration
-
-### 4. Configura il file .env
-
-```bash
-cp .env.example .env
-```
-
-Apri `.env` e inserisci:
-- `NOTION_TOKEN` → il secret copiato al punto 2
-- `NOTION_DATABASE_ID` → l'ID del database (lo trovi nell'URL di Notion: `notion.so/QUESTO_ID?v=...`)
-
-### 5. Avvia
-
-```bash
+cp .env.example .env    # inserisci token Notion e ID database
 npm start
 ```
 
-Apri **http://localhost:3000** nel browser.
+App su `http://localhost:3000`. Da iPhone (stessa WiFi): `http://IP-DEL-PC:3000`.
 
-## Come funziona
+## Con Docker
 
-### Sincronizzazione
+```bash
+cp .env.example .env    # compila i valori
+docker compose up --build
+```
 
-- **Notion è la fonte primaria**: ogni operazione (aggiungi, modifica, elimina) viene eseguita prima su Notion, poi la cache locale viene aggiornata.
-- **localStorage come fallback**: se il server non è raggiungibile, l'app funziona comunque con i dati in cache.
-- L'indicatore in alto mostra lo stato: 🟢 Notion connesso, 🔴 Offline.
+## Deploy in cloud (accesso ovunque)
 
-### Ammortamento
+1. Fai il push del repo su GitHub.
+2. Su Render: "New → Blueprint", punta al repo (usa `render.yaml`).
+3. Inserisci `NOTION_TOKEN` e `NOTION_DATABASE_ID` nella dashboard.
+4. **Consigliato:** imposta anche `BASIC_AUTH_USER` e `BASIC_AUTH_PASS` per
+   proteggere l'app con utente/password.
 
-Per ogni spesa puoi impostare un periodo di ammortamento (3 mesi → 5 anni). L'app calcola automaticamente il costo mensile effettivo e mostra:
-- il costo ammortizzato totale del mese corrente nella dashboard
-- la barra di progresso per ogni spesa ammortizzata
-- la timeline completa nella vista "Ammortamenti"
+Nota: i piani gratuiti spesso mettono l'app "in pausa" dopo un po' di inattività,
+quindi il primo caricamento dopo una pausa può richiedere qualche secondo.
 
-### Accesso da iPhone
+## .env
 
-Siccome il server gira in locale, per accedere da iPhone sulla stessa rete WiFi:
+```
+NOTION_TOKEN=ntn_xxxxxxxxxxxx
+NOTION_DATABASE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+PORT=3000
+HOST=0.0.0.0
+# BASIC_AUTH_USER=...
+# BASIC_AUTH_PASS=...
+```
 
-1. Trova l'IP locale del PC (es. `192.168.1.100`)
-2. Da iPhone apri Safari → `http://192.168.1.100:3000`
-3. Facoltativo: Safari → Condividi → "Aggiungi alla schermata Home"
+## Note
 
-## Tech Stack
-
-- **Frontend**: Vanilla JS (ES Modules), CSS custom properties
-- **Backend**: Express.js
-- **Database**: Notion API via `@notionhq/client`
-- **Persistenza locale**: localStorage
+- Aggiungendo categorie su Notion, usa il pulsante "Aggiorna schema" invece di
+  riavviare il server.
+- Il service worker è auto-distruttivo (rimuove versioni in cache). L'app resta
+  utilizzabile offline grazie a IndexedDB.
