@@ -1,4 +1,4 @@
-import { AMORT_OPTIONS, RECURRENCE_OPTIONS, NATURE_OPTIONS, TYPE_OPTIONS, DEDUCTION_DEFAULTS, DEFAULT_CATEGORY } from "../constants.js";
+import { AMORT_OPTIONS, RECURRENCE_OPTIONS, NATURE_OPTIONS, TYPE_OPTIONS, DEDUCTION_DEFAULTS, DEFAULT_CATEGORY, CURRENCIES } from "../constants.js";
 import { expenseCategories, incomeCategories } from "../catalog.js";
 import { escapeHtml, formatCurrency, todayISO } from "../utils.js";
 
@@ -17,9 +17,10 @@ function isCustomRecur(v) { return typeof v === "string" && /^Ogni\s+\d+\s+mes/i
 function extractCustomMonths(v) { const m = String(v).match(/\d+/); return m ? parseInt(m[0]) : 1; }
 
 export function showExpenseForm(overlay, expense, onSubmit) {
-  const isEdit = expense !== null;
+  const isEdit = !!(expense && expense.id);
   let selType = expense?.type || "spesa";
   let selCat = expense?.cat || DEFAULT_CATEGORY;
+  let selCurrency = expense?.currency || "EUR";
   let selAm = expense?.am || 1;
   let customAmOpen = false;
   let selRecur = expense?.recur || "Nessuna";
@@ -110,7 +111,13 @@ export function showExpenseForm(overlay, expense, onSubmit) {
 
         <div class="field">
           <label class="field-label">Importo</label>
-          <input class="input amount-input tnum" id="f-amount" type="number" step="0.01" placeholder="0,00" value="${expense?.amount || ""}" inputmode="decimal">
+          <div class="amount-row">
+            <input class="input amount-input tnum" id="f-amount" type="number" step="0.01" placeholder="0,00" value="${(expense?.currency && expense.currency !== "EUR" && expense.originalAmount != null) ? expense.originalAmount : (expense?.amount || "")}" inputmode="decimal">
+            <select class="input currency-select" id="f-currency">
+              ${CURRENCIES.map(c => `<option value="${c}" ${c === selCurrency ? "selected" : ""}>${c}</option>`).join("")}
+            </select>
+          </div>
+          <div id="f-eur-preview" class="eur-preview ${selCurrency === "EUR" ? "hidden" : ""}"></div>
         </div>
 
         <div class="field">
@@ -213,6 +220,28 @@ export function showExpenseForm(overlay, expense, onSubmit) {
 
   overlay.querySelector("#f-amount")?.addEventListener("input", preview);
   overlay.querySelector("#f-am-custom")?.addEventListener("input", preview);
+
+  // Conversione valuta: mostra l'equivalente in EUR
+  let convTimer;
+  async function updateEurPreview() {
+    const el = overlay.querySelector("#f-eur-preview");
+    if (!el) return;
+    const cur = overlay.querySelector("#f-currency")?.value || "EUR";
+    el.classList.toggle("hidden", cur === "EUR");
+    if (cur === "EUR") return;
+    const amt = parseFloat(overlay.querySelector("#f-amount")?.value || 0);
+    if (!amt) { el.textContent = ""; return; }
+    el.textContent = "conversione…";
+    try {
+      const r = await fetch(`/api/convert?currency=${cur}&amount=${amt}`);
+      const d = await r.json();
+      if (d.ok) el.textContent = `≈ ${formatCurrency(d.eur)}  ·  1 ${cur} = ${d.rate.toFixed(4)} €`;
+      else el.textContent = "cambio non disponibile ora (verrà convertito al salvataggio)";
+    } catch { el.textContent = "cambio non disponibile offline"; }
+  }
+  overlay.querySelector("#f-currency")?.addEventListener("change", () => { selCurrency = overlay.querySelector("#f-currency").value; updateEurPreview(); });
+  overlay.querySelector("#f-amount")?.addEventListener("input", () => { clearTimeout(convTimer); convTimer = setTimeout(updateEurPreview, 350); });
+  if (selCurrency !== "EUR") updateEurPreview();
   overlay.querySelector("#f-recur-custom")?.addEventListener("input", ev => { customRecurMonths = Math.max(1, parseInt(ev.target.value) || 1); preview(); });
 
   overlay.querySelector("#adv-toggle")?.addEventListener("click", () => {
@@ -281,6 +310,7 @@ export function showExpenseForm(overlay, expense, onSubmit) {
       am: amFinal, recur: recurFinal,
       nature: selType === "entrata" ? "variabile" : selNature,
       note, location,
+      currency: selCurrency || "EUR",
       detraibile: selType === "entrata" ? false : detraibile,
       detrazionePct: (selType === "entrata" || !detraibile) ? 0 : detrazionePct,
       utilizzi: selType === "entrata" ? 0 : utilizzi,

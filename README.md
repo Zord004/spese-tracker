@@ -1,76 +1,109 @@
-# Spese — conto personale (v9.2)
+# Spese — conto personale
 
 Tracker di spese personali con sincronizzazione su Notion.
-Backend Node.js/Express, frontend vanilla JS.
+Backend Node.js/Express, frontend vanilla JS. PWA installabile e utilizzabile offline.
 
-## Novità v9.2
+## Novità v9.4
 
-**Storage — IndexedDB.** La cache dei movimenti, la coda di sincronizzazione
-offline e la geocache ora usano IndexedDB (via `localforage`, vendorizzato in
-`js/vendor/`) invece di `localStorage`: scritture asincrone che non bloccano
-l'interfaccia e nessun limite pratico di dimensione. Le impostazioni scalari
-(tema, budget, entrata) restano su localStorage. La migrazione dai dati vecchi
-è automatica al primo avvio.
+**Suite di test.** 72 test con `node:test` (integrato in Node 20+, nessuna
+dipendenza aggiuntiva) su tutti i calcoli che riguardano i soldi: ammortamenti,
+ricorrenze, report fiscale, proiezione del saldo, tasso di risparmio, budget.
 
-**Schema dinamico da Notion.** Il server legge le categorie dallo schema del
-database all'avvio e le tiene in cache. Se aggiungi una categoria su Notion,
-premi *Altro → Dati → "Aggiorna schema da Notion"*: l'app la rileva senza
-riavviare il server. Alle categorie nuove viene assegnato un colore in automatico.
+> I test hanno subito ripagato: hanno scovato un bug in `addMonths`. Una spesa
+> datata **31 gennaio** con ammortamento a 4 mesi finiva in
+> `['2026-01', '2026-03', '2026-03', '2026-04']` — febbraio saltato, marzo
+> contato due volte. Colpiva ogni acquisto fatto il 29, 30 o 31 del mese.
+> Corretto, con test di regressione a presidio (anno bisestile incluso).
 
-**Barra budget spesa variabile.** In *Altro → Finanze* puoi impostare un limite
-di spesa variabile mensile; nell'intestazione del conto compare una barra che si
-riempie (navy → ottone → rosso quando sfori).
+**Budget per categoria.** In *Altro → Finanze → Budget per categoria* si fissa un
+tetto mensile per ogni categoria. Nella schermata *Conto* compare una sezione con
+le barre che virano da navy a ottone a rosso man mano che ci si avvicina al
+limite, con l'indicazione di quanto resta o di quanto si è sforato. Le spese
+ricorrenti pesano con la loro quota mensile.
 
-**Grafico tasso di risparmio.** In *Analisi → Andamento*, un grafico a barre
-mostra il tasso di risparmio degli ultimi 6 mesi (richiede l'entrata mensile
-impostata). Disegnato in SVG, nessuna dipendenza aggiuntiva.
+**Controllo dei tipi senza TypeScript.** Annotazioni JSDoc più `checkJs`: si
+ottiene il controllo dei tipi nell'editor e in CI senza rinominare i file, senza
+build step e senza toccare il deploy. I tipi condivisi stanno in `js/types.js`.
 
-**Docker & hosting.** `Dockerfile` + `docker-compose.yml` per un setup pulito, e
-`render.yaml` per il deploy su Render (Railway/Fly simili). Basic Auth opzionale
-per proteggere l'app se la esponi su internet.
+Il controllo ha ripulito imprecisioni reali: sottrazioni implicite fra oggetti
+`Date`, `parseInt()` applicato a valori già numerici, e soprattutto due endpoint
+che non gestivano i parametri ripetuti nella query string (`?amount=1&amount=9`
+arriva come array, non come stringa).
 
-## Setup locale
+**Integrazione continua.** Il workflow in `.github/workflows/ci.yml` esegue
+controllo dei tipi e test a ogni push su `main`, su Node 20 e 22.
+
+## Comandi
 
 ```bash
 npm install
-cp .env.example .env    # inserisci token Notion e ID database
-npm start
+cp .env.example .env    # token Notion e ID database
+npm start               # avvia su http://localhost:3000
+
+npm test                # suite di test
+npm run test:watch      # test in watch mode
+npm run typecheck       # controllo dei tipi
+npm run check           # tipi + test (come in CI)
 ```
 
-App su `http://localhost:3000`. Da iPhone (stessa WiFi): `http://IP-DEL-PC:3000`.
+Da iPhone sulla stessa WiFi: `http://IP-DEL-PC:3000`.
+Dopo un aggiornamento, svuota la cache di Safari.
+
+## Funzionalità
+
+- **Sincronizzazione Notion** bidirezionale, con coda offline e ripristino
+  automatico al ritorno della connessione
+- **PWA installabile**: app-shell in cache, font self-hosted, funziona offline
+- **Ammortamenti** su più mesi e **spese ricorrenti** con periodicità libera
+- **Report per il commercialista** (730/Unico) con detraibilità e percentuali
+- **Proiezione del saldo** a fine mese basata su entrate e ricorrenze
+- **Budget** complessivo, sulla spesa variabile e per singola categoria
+- **Multi-valuta** con conversione al tasso del giorno
+- **Tema chiaro/scuro** o automatico secondo il sistema
+- **Swipe** sulle righe per clonare o eliminare
 
 ## Con Docker
 
 ```bash
-cp .env.example .env    # compila i valori
+cp .env.example .env
 docker compose up --build
 ```
 
-## Deploy in cloud (accesso ovunque)
+## Deploy in cloud
 
-1. Fai il push del repo su GitHub.
+1. Push del repo su GitHub.
 2. Su Render: "New → Blueprint", punta al repo (usa `render.yaml`).
-3. Inserisci `NOTION_TOKEN` e `NOTION_DATABASE_ID` nella dashboard.
-4. **Consigliato:** imposta anche `BASIC_AUTH_USER` e `BASIC_AUTH_PASS` per
-   proteggere l'app con utente/password.
+3. Inserisci `NOTION_TOKEN` e `NOTION_DATABASE_ID`.
+4. Consigliato: `BASIC_AUTH_USER` e `BASIC_AUTH_PASS` per proteggere l'app.
 
-Nota: i piani gratuiti spesso mettono l'app "in pausa" dopo un po' di inattività,
-quindi il primo caricamento dopo una pausa può richiedere qualche secondo.
+I piani gratuiti mettono l'app in pausa dopo un periodo di inattività: il primo
+caricamento dopo la pausa può richiedere qualche secondo.
 
-## .env
+## Colonne Notion opzionali (multi-valuta)
 
-```
-NOTION_TOKEN=ntn_xxxxxxxxxxxx
-NOTION_DATABASE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-PORT=3000
-HOST=0.0.0.0
-# BASIC_AUTH_USER=...
-# BASIC_AUTH_PASS=...
-```
+L'app funziona senza, ma per vedere su Notion anche la valuta e l'importo
+originale, aggiungi due colonne al database:
 
-## Note
+- **Valuta** — tipo *Select* (EUR, USD, GBP, JPY, CHF, CAD, AUD, SEK, NOK, DKK)
+- **Importo originale** — tipo *Number*
 
-- Aggiungendo categorie su Notion, usa il pulsante "Aggiorna schema" invece di
-  riavviare il server.
-- Il service worker è auto-distruttivo (rimuove versioni in cache). L'app resta
-  utilizzabile offline grazie a IndexedDB.
+Finché non esistono, il server le salta senza errori e salva comunque l'importo
+convertito in € nella colonna *Importo*.
+
+## Categorie dinamiche
+
+Aggiungendo categorie su Notion, usa *Altro → Dati → "Aggiorna schema da Notion"*
+invece di riavviare il server.
+
+## Cosa non è supportato (e perché)
+
+- **Background Sync API** — non supportata da Safari su iOS in nessuna versione.
+  Sostituita dallo svuotamento della coda all'evento `online`.
+- **Feedback aptico (`navigator.vibrate`)** — non supportato nativamente da
+  Safari su iOS; gli unici workaround sono polyfill fragili.
+
+## Copertura dei test
+
+Coperti: `js/models.js` e `js/utils.js`, cioè tutti i calcoli.
+Non coperti: la validazione lato server e lo `store` (richiedono rispettivamente
+un'istanza Notion e IndexedDB), e il rendering delle viste.

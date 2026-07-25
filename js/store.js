@@ -1,9 +1,27 @@
-import { STORAGE_KEY, BUDGET_KEY, THEME_KEY, GEOCACHE_KEY, INCOME_KEY, TAX_PROFILE_KEY, VARBUDGET_KEY } from "./constants.js";
+/**
+ * Persistenza: IndexedDB (via localforage) per i dati corposi,
+ * localStorage per le impostazioni scalari. Gestisce la coda offline.
+ * @typedef {import("./types.js").Expense} Expense
+ * @typedef {import("./types.js").CatBudgets} CatBudgets
+ */
+import { STORAGE_KEY, BUDGET_KEY, THEME_KEY, GEOCACHE_KEY, INCOME_KEY, TAX_PROFILE_KEY, VARBUDGET_KEY, CAT_BUDGETS_KEY } from "./constants.js";
 const PENDING_KEY = "myexpenses_pending";
 
-// localforage globale (vendorizzato, caricato in index.html prima del modulo)
-const lf = window.localforage;
-const idb = lf.createInstance({ name: "spese-tracker", storeName: "kv" });
+// localforage globale (vendorizzato, caricato in index.html prima del modulo).
+// Se per qualsiasi motivo non è disponibile, si ripiega su un adattatore
+// asincrono su localStorage invece di far crashare tutto il modulo.
+/** @type {any} */ const lf = (/** @type {any} */ (window)).localforage;
+let idb;
+if (lf && typeof lf.createInstance === "function") {
+  idb = lf.createInstance({ name: "spese-tracker", storeName: "kv" });
+} else {
+  console.error("localforage non disponibile: uso il fallback su localStorage");
+  idb = {
+    getItem: async (/** @type {string} */ k) => { const v = localStorage.getItem("lf_" + k); return v == null ? null : JSON.parse(v); },
+    setItem: async (/** @type {string} */ k, /** @type {any} */ val) => { localStorage.setItem("lf_" + k, JSON.stringify(val)); return val; },
+    removeItem: async (/** @type {string} */ k) => { localStorage.removeItem("lf_" + k); },
+  };
+}
 
 class ExpenseStore {
   constructor(key = STORAGE_KEY) {
@@ -40,6 +58,7 @@ class ExpenseStore {
   async _getPending() { try { return (await idb.getItem(PENDING_KEY)) || []; } catch { return []; } }
   async _setPending(q) { try { await idb.setItem(PENDING_KEY, q); this._pendingCount = q.length; } catch {} }
   async _addPending(op) { const q = await this._getPending(); q.push(op); await this._setPending(q); }
+  /** @returns {number} operazioni in attesa (lettura sincrona dal mirror) */
   pendingCount() { return this._pendingCount; }   // sincrono, dal mirror
 
   async getGeoCache() { try { return (await idb.getItem(GEOCACHE_KEY)) || {}; } catch { return {}; } }
@@ -56,16 +75,29 @@ class ExpenseStore {
   setIncome(a) { localStorage.setItem(INCOME_KEY, String(a)); }
   getTaxProfile() { try { return JSON.parse(localStorage.getItem(TAX_PROFILE_KEY) || "{}"); } catch { return {}; } }
   setTaxProfile(p) { localStorage.setItem(TAX_PROFILE_KEY, JSON.stringify(p || {})); }
+  /** Budget per categoria: { "Cibo": 300, "Svago": 100 } */
+  getCatBudgets() { try { return JSON.parse(localStorage.getItem(CAT_BUDGETS_KEY) || "{}"); } catch { return {}; } }
+  /** @param {string} cat @param {number} amount 0 rimuove il tetto */
+  setCatBudget(cat, amount) {
+    const b = this.getCatBudgets();
+    if (amount > 0) b[cat] = amount; else delete b[cat];
+    localStorage.setItem(CAT_BUDGETS_KEY, JSON.stringify(b));
+  }
 
+  /** Svuota la coda offline con pacing anti rate-limit. @returns {Promise<number>} operazioni riuscite */
   async syncPending() {
     const queue = await this._getPending(); if (!queue.length) return 0;
     let synced = 0; const remaining = [];
-    for (const op of queue) {
+    const pause = (ms) => new Promise(r => setTimeout(r, ms));
+    for (let i = 0; i < queue.length; i++) {
+      const op = queue[i];
       try {
         if (op.type === "add") { await this._api("", { method: "POST", body: JSON.stringify(op.data) }); synced++; }
         else if (op.type === "update") { await this._api(`/${op.id}`, { method: "PUT", body: JSON.stringify(op.data) }); synced++; }
         else if (op.type === "delete") { await this._api(`/${op.id}`, { method: "DELETE" }); synced++; }
       } catch { remaining.push(op); }
+      // Pacing: ~350ms tra un'operazione e l'altra, sotto il limite di 3 req/s di Notion
+      if (i < queue.length - 1) await pause(350);
     }
     await this._setPending(remaining); return synced;
   }
@@ -89,6 +121,8 @@ class ExpenseStore {
 
   async _api(p, o = {}) { const r = await fetch(`/api/expenses${p}`, { headers: { "Content-Type": "application/json" }, ...o }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }
 
+  /** Legge da Notion; in caso di errore ripiega sulla cache locale.
+   * @returns {Promise<{data: Expense[], source: string, syncedPending: number}>} */
   async getAll() {
     await this._ready;
     this._lastStatus = { syncing: true, error: null }; this._emit(this._lastStatus);
@@ -97,6 +131,7 @@ class ExpenseStore {
       throw new Error();
     } catch (e) { this._lastStatus = { syncing: false, error: e.message, source: "cache" }; this._emit(this._lastStatus); return { data: await this._getCache(), source: "cache", syncedPending: 0 }; }
   }
+  /** @param {Expense} exp */
   async add(exp) {
     if (exp.location) this.geocode(exp.location).catch(() => {});
     this._emit({ syncing: true, error: null });
@@ -106,6 +141,7 @@ class ExpenseStore {
       const local = { ...exp, id: `pending_${Date.now()}`, _pending: true }; c.unshift(local); await this._setCache(c);
       this._emit({ syncing: false, error: e.message, source: "cache" }); return { data: local }; }
   }
+  /** @param {string} id @param {Expense} u */
   async update(id, u) {
     if (u.location) this.geocode(u.location).catch(() => {});
     this._emit({ syncing: true, error: null });
@@ -113,6 +149,7 @@ class ExpenseStore {
     } catch (e) { if (!id.startsWith("pending_")) await this._addPending({ type: "update", id, data: u, ts: Date.now() });
       await this._setCache((await this._getCache()).map(x => x.id === id ? { ...x, ...u } : x)); this._emit({ syncing: false, error: e.message, source: "cache" }); }
   }
+  /** @param {string} id */
   async delete(id) {
     this._emit({ syncing: true, error: null });
     try { await this._api(`/${id}`, { method: "DELETE" }); const all = await this._api(""); if (all.ok) await this._setCache(all.data); this._emit({ syncing: false, error: null, source: "notion" });

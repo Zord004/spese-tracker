@@ -1,17 +1,28 @@
 {
   "name": "spese-tracker",
-  "version": "9.2.0",
+  "version": "9.4.0",
   "description": "Expense tracker — istituzionale, sobrio",
   "type": "module",
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "test": "node --test \"test/*.test.js\"",
+    "test:watch": "node --test --watch \"test/*.test.js\"",
+    "typecheck": "tsc --noEmit -p jsconfig.json",
+    "check": "npm run typecheck && npm test"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/libre-franklin": "^5.2.8",
     "@notionhq/client": "^2.2.15",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "express-rate-limit": "^7.4.0",
     "helmet": "^8.0.0",
     "localforage": "^1.10.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2"
   }
 }

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Inter:wght@400;450;500;600&display=swap');
+@import url('fonts.css');
 
 /* ══════════════════════════════════════════════════════════
    Spese v9.1 — stile istituzionale
@@ -188,6 +188,45 @@ main { position:relative; }
 .txrow { display:flex; align-items:center; gap:13px; padding:13px 16px; border-bottom:1px solid var(--line); cursor:pointer; transition:background .12s; }
 .txrow:last-child { border-bottom:none; }
 .txrow:hover, .txrow:active { background:var(--surface-2); }
+
+/* Swipe-to-reveal */
+.swipe { position:relative; overflow:hidden; border-bottom:1px solid var(--line); }
+.swipe:last-child { border-bottom:none; }
+.swipe .txrow { border-bottom:none; }
+.swipe-face { position:relative; z-index:2; background:var(--surface); transition:transform .22s cubic-bezier(.16,1,.3,1); touch-action:pan-y; }
+.swipe-actions { position:absolute; top:0; right:0; bottom:0; z-index:1; display:flex; }
+.swipe-act { border:none; width:66px; font-family:inherit; font-size:12px; font-weight:600; letter-spacing:.02em; color:#fff; cursor:pointer; }
+.swipe-act.clone { background:var(--navy); }
+.swipe-act.del { background:var(--debit); }
+
+/* Elenco budget per categoria nelle impostazioni */
+.catbudget-list { background:var(--surface-2); }
+.list-item.sub { padding-left:28px; }
+.list-item.sub .list-item-title { display:flex; align-items:center; gap:9px; font-weight:500; }
+
+/* Budget per categoria */
+.sec-warn { font-size:11px; font-weight:600; color:var(--debit); letter-spacing:.02em; }
+.catrow-amt .of { color:var(--ink-3); font-weight:500; }
+.catrow-amt.warn { color:var(--brass); }
+.catrow-amt.over { color:var(--debit); }
+.catrow-note { font-size:11px; color:var(--ink-3); margin-top:5px; }
+.catrow-note.warn { color:var(--brass); font-weight:600; }
+.catrow-note.over { color:var(--debit); font-weight:600; }
+.fill.bud-ok { background:var(--navy); }
+.fill.bud-warn { background:var(--brass); }
+.fill.bud-over { background:var(--debit); }
+
+/* Proiezione saldo */
+.proj { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.proj-fig { font-family:var(--font-display); font-weight:700; font-size:26px; margin-top:3px; }
+.proj-side { text-align:right; font-size:11.5px; color:var(--ink-3); line-height:1.7; }
+.proj-side b { color:var(--ink-2); font-weight:600; }
+
+/* Selettore valuta nel form */
+.amount-row { display:flex; gap:8px; align-items:stretch; }
+.amount-row .amount-input { flex:1 1 auto; width:auto; min-width:0; }
+.amount-row .currency-select { flex:0 0 96px; width:96px; padding:0 10px; font-weight:600; font-family:inherit; text-align:center; }
+.eur-preview { margin-top:7px; font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; }
 .tx-ico {
   width:36px; height:36px; border-radius:8px; flex-shrink:0;
   display:flex; align-items:center; justify-content:center;

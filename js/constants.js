@@ -57,10 +57,14 @@ export const DEDUCTION_DEFAULTS = {
 };
 
 export const DEFAULT_CATEGORY = "Altro";
+
+// Valute supportate per la multi-valuta (il server converte in EUR)
+export const CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF", "CAD", "AUD", "SEK", "NOK", "DKK"];
 export const STORAGE_KEY = "myexpenses";
 export const BUDGET_KEY = "myexpenses_budget";
 export const THEME_KEY = "myexpenses_theme";
 export const GEOCACHE_KEY = "myexpenses_geocache";
 export const INCOME_KEY = "myexpenses_income";
 export const VARBUDGET_KEY = "myexpenses_varbudget";
+export const CAT_BUDGETS_KEY = "myexpenses_cat_budgets";
 export const TAX_PROFILE_KEY = "myexpenses_tax_profile";

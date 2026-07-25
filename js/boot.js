@@ -1,6 +1,6 @@
-// Rimuove eventuali service worker e cache di versioni precedenti.
-// In file esterno (non inline) per rispettare la Content-Security-Policy.
+// Registra il service worker (app-shell offline). In file esterno per la CSP.
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
-  if (window.caches) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => {});
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
 }

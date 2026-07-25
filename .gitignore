@@ -1,3 +1,16 @@
+# Dipendenze (si reinstallano con npm install)
 node_modules/
+
+# Segreti — NON committare MAI
 .env
+.env.local
+*.local
+
+# Log e sistema
+*.log
+npm-debug.log*
 .DS_Store
+
+# Artefatti di test
+real-*.png
+shot.cjs

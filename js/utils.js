@@ -1,20 +1,43 @@
+/** Neutralizza HTML nei testi inseriti dall'utente. @param {*} s @returns {string} */
 export function escapeHtml(s) { return typeof s !== "string" ? "" : s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+/** Formato euro italiano; da 1000 in su arrotonda all'unità. @param {number} n @returns {string} */
 export function formatCurrency(n) { return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: Math.abs(n) >= 1000 ? 0 : 2 }).format(n); }
+/** Formato euro sempre con i centesimi. @param {number} n @returns {string} */
 export function formatCurrencyFull(n) { return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n); }
+/** @param {string|Date} d @returns {string} chiave YYYY-MM */
 export function monthKey(d) { const t = new Date(d); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}`; }
+/** @param {string} k chiave YYYY-MM @returns {string} es. "Gen 2026" */
 export function monthLabel(k) { const [y, m] = k.split("-"); return ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"][+m-1] + " " + y; }
+/** @param {string} k chiave YYYY-MM @returns {string} es. "Gen" */
 export function monthShort(k) { const [, m] = k.split("-"); return ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"][+m-1]; }
-export function addMonths(d, n) { const t = new Date(d); t.setMonth(t.getMonth() + n); return t; }
+/** @param {string|Date} d @param {number} n @returns {Date} */
+export function addMonths(d, n) {
+  // Attenzione: t.setMonth(t.getMonth()+n) da solo "trabocca" (31 gen + 1 mese
+  // darebbe 3 marzo, saltando febbraio). Si azzera al giorno 1, si sposta il
+  // mese e poi si riporta il giorno, limitandolo all'ultimo giorno valido.
+  const t = new Date(d);
+  const day = t.getDate();
+  t.setDate(1);
+  t.setMonth(t.getMonth() + n);
+  const lastDay = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
+  t.setDate(Math.min(day, lastDay));
+  return t;
+}
+/** @returns {string} data odierna YYYY-MM-DD */
 export function todayISO() { return new Date().toISOString().split("T")[0]; }
+/** @returns {string} chiave del mese corrente YYYY-MM */
 export function currentMonthKey() { return monthKey(new Date().toISOString()); }
+/** @returns {number} */
 export function currentYear() { return new Date().getFullYear(); }
+/** @param {string} d @returns {string} */
 export function formatDate(d) {
   const date = new Date(d);
   const now = new Date();
-  const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
   if (diffDays === 0) return "Oggi";
   if (diffDays === 1) return "Ieri";
   if (diffDays < 7) return `${diffDays}g fa`;
   return date.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
 }
+/** @param {string} d @returns {string} */
 export function formatDateLong(d) { return new Date(d).toLocaleDateString("it-IT"); }

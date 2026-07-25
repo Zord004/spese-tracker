@@ -1,29 +1,29 @@
-import { totalAmortizedThisMonth, totalSpent, categoryBreakdown, getCategoryById, totalRecurringMonthly, totalIncomeThisMonth, isIncome, isExpense, monthComparison, savingsRate, variableSpentThisMonth } from "../models.js";
+import { totalAmortizedThisMonth, totalSpent, categoryBreakdown, getCategoryById, totalRecurringMonthly, totalIncomeThisMonth, isIncome, isExpense, monthComparison, savingsRate, variableSpentThisMonth, balanceProjection, categoryBudgetStatus } from "../models.js";
 import { escapeHtml, formatCurrency, formatDate } from "../utils.js";
+import { attachSwipe, swipeWrap } from "../swipe.js";
 
-export function renderHome(container, expenses, { onEditExpense, budget, varBudget, income, onNavigate }) {
+export function renderHome(container, expenses, { onEditExpense, onDelete, onClone, budget, varBudget, catBudgets, income, onNavigate }) {
   const amort = totalAmortizedThisMonth(expenses);
   const recur = totalRecurringMonthly(expenses);
   const monthCost = amort + recur;
   const cats = categoryBreakdown(expenses);
   const maxCat = Math.max(...cats.map(c => c.total), 1);
-  const recent = [...expenses].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6);
+  const recent = [...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6);
   const comp = monthComparison(expenses);
   const incomeMonth = totalIncomeThisMonth(expenses);
   const totalIncomeM = income + incomeMonth;
+  const proj = balanceProjection(expenses, income);
 
   let deltaHtml = "";
   if (comp.previous > 0) {
     const pct = ((comp.current - comp.previous) / comp.previous) * 100;
     const cls = pct > 0 ? "up" : "down";
     const arrow = pct > 0 ? "↑" : "↓";
-    deltaHtml = `<span class="chip-delta ${cls}">${arrow} ${Math.abs(pct).toFixed(0)}%</span>
-      <span>rispetto a mese scorso (${formatCurrency(comp.previous)})</span>`;
+    deltaHtml = `<span class="chip-delta ${cls}">${arrow} ${Math.abs(pct).toFixed(0)}%</span><span>rispetto a mese scorso (${formatCurrency(comp.previous)})</span>`;
   } else {
     deltaHtml = `<span>${expenses.filter(isExpense).length} spese registrate in totale</span>`;
   }
 
-  // Terza cella del ledger
   let thirdCell;
   if (totalIncomeM > 0) {
     const saved = totalIncomeM - monthCost;
@@ -35,7 +35,6 @@ export function renderHome(container, expenses, { onEditExpense, budget, varBudg
     thirdCell = `<div class="cell"><div class="lbl">Movimenti</div><div class="val tnum">${expenses.length}</div></div>`;
   }
 
-  // Barra budget spesa variabile
   let budgetBar = "";
   if (varBudget > 0) {
     const varSpent = variableSpentThisMonth(expenses);
@@ -55,6 +54,50 @@ export function renderHome(container, expenses, { onEditExpense, budget, varBudg
       </div>`;
   }
 
+  // Budget per categoria (solo quelle con un tetto impostato)
+  const budgetStatus = categoryBudgetStatus(expenses, catBudgets || {});
+  let catBudgetSection = "";
+  if (budgetStatus.length) {
+    const overCount = budgetStatus.filter(b => b.state === "over").length;
+    catBudgetSection = `
+      <div class="pad"><div class="sec-head"><span class="sec-title">Budget categorie</span>${overCount ? `<span class="sec-warn">${overCount} sforat${overCount === 1 ? "o" : "i"}</span>` : ""}</div></div>
+      <div class="card">
+        ${budgetStatus.map(b => `
+          <div class="catrow">
+            <div class="catrow-top">
+              <div class="catrow-name"><span class="swatch" style="background:${b.color}"></span><span>${escapeHtml(b.id)}</span></div>
+              <div class="catrow-amt tnum ${b.state}">${formatCurrency(b.spent)} <span class="of">/ ${formatCurrency(b.limit)}</span></div>
+            </div>
+            <div class="track"><div class="fill bud-${b.state}" style="width:${b.ratio * 100}%"></div></div>
+            <div class="catrow-note ${b.state}">${b.state === "over"
+              ? `Sforato di ${formatCurrency(b.spent - b.limit)}`
+              : `Restano ${formatCurrency(b.remaining)} · ${b.pct.toFixed(0)}% usato`}</div>
+          </div>
+        `).join("")}
+      </div>`;
+  }
+
+  // Card proiezione saldo fine mese (solo se conosciamo un'entrata)
+  let projCard = "";
+  if (proj.incomeExpected > 0) {
+    const b = proj.projectedBalance;
+    projCard = `
+      <div class="pad"><div class="sec-head"><span class="sec-title">Proiezione fine mese</span></div></div>
+      <div class="card pad-card">
+        <div class="proj">
+          <div>
+            <div class="eyebrow">Saldo previsto</div>
+            <div class="proj-fig tnum" style="color:${b >= 0 ? "var(--credit)" : "var(--debit)"}">${b >= 0 ? "+" : ""}${formatCurrency(b)}</div>
+          </div>
+          <div class="proj-side">
+            <div>Entrate <b class="tnum">${formatCurrency(proj.incomeExpected)}</b></div>
+            <div>Spese finora <b class="tnum">${formatCurrency(proj.spentSoFar)}</b></div>
+            ${proj.upcoming > 0 ? `<div>Ancora da pagare <b class="tnum">${formatCurrency(proj.upcoming)}</b></div>` : ""}
+          </div>
+        </div>
+      </div>`;
+  }
+
   container.innerHTML = `
     <div class="statement">
       <div class="eyebrow">Spesa del mese</div>
@@ -68,6 +111,10 @@ export function renderHome(container, expenses, { onEditExpense, budget, varBudg
         ${thirdCell}
       </div>
     </div>
+
+    ${projCard}
+
+    ${catBudgetSection}
 
     ${totalIncomeM > 0 ? `
       <div class="pad"><div class="sec-head"><span class="sec-title">Entrate del mese</span></div></div>
@@ -104,15 +151,16 @@ export function renderHome(container, expenses, { onEditExpense, budget, varBudg
     ${!expenses.length ? `
       <div class="card"><div class="empty"><span class="big">Nessun movimento</span>Tocca + per registrare la prima voce.</div></div>
     ` : `
-      <div class="card">${recent.map(e => renderRow(e)).join("")}</div>
+      <div class="card row-swipes">${recent.map(e => swipeWrap(e.id, rowInner(e))).join("")}</div>
     `}
   `;
 
-  container.querySelectorAll("[data-edit]").forEach(el => el.addEventListener("click", () => onEditExpense(el.dataset.edit)));
   container.querySelectorAll("[data-nav]").forEach(el => el.addEventListener("click", () => onNavigate(el.dataset.nav)));
+  const swipes = container.querySelector(".row-swipes");
+  if (swipes) attachSwipe(swipes, { onEdit: onEditExpense, onDelete, onClone });
 }
 
-function renderRow(e) {
+export function rowInner(e) {
   const inc = isIncome(e);
   const c = getCategoryById(e.cat, inc ? "entrata" : "spesa");
   const initial = (e.name || "?").trim().charAt(0).toUpperCase();
@@ -121,8 +169,10 @@ function renderRow(e) {
   else if (e.recur && e.recur !== "Nessuna") tags.push(recurLabel(e.recur));
   if (e.detraibile) tags.push(`detr. ${e.detrazionePct}%`);
   const tag = tags.length ? `<span class="tx-tag">${escapeHtml(tags[0])}</span>` : "";
+  const foreign = e.currency && e.currency !== "EUR" && e.originalAmount != null;
+  const sub = e.am > 1 ? `${formatCurrency(e.amount / e.am)}/mese` : (foreign ? `${formatNum(e.originalAmount)} ${escapeHtml(e.currency)}` : "");
 
-  return `<div class="txrow" data-edit="${escapeHtml(e.id)}">
+  return `<div class="txrow">
     <div class="tx-ico" ${inc ? 'style="color:var(--credit)"' : ""}>${escapeHtml(initial)}<span class="cat-dot" style="background:${c.color}"></span></div>
     <div class="tx-main">
       <div class="tx-name">${escapeHtml(e.name)}${tag}</div>
@@ -130,10 +180,12 @@ function renderRow(e) {
     </div>
     <div class="tx-amt">
       <div class="a ${inc ? "credit" : ""} tnum">${inc ? "+ " : ""}${formatCurrency(e.amount)}</div>
-      ${e.am > 1 ? `<div class="s tnum">${formatCurrency(e.amount / e.am)}/mese</div>` : ""}
+      ${sub ? `<div class="s tnum">${sub}</div>` : ""}
     </div>
   </div>`;
 }
+
+function formatNum(n) { return new Intl.NumberFormat("it-IT", { maximumFractionDigits: 2 }).format(n); }
 
 function recurLabel(r) {
   if (r === "Giornaliera") return "giorn.";

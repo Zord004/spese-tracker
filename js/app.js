@@ -27,12 +27,19 @@ class App {
     this.syncDot = document.getElementById("sync-dot");
     this.syncLabel = document.getElementById("sync-label");
     store.onStatusChange(s => { this.syncStatus = s; this._syncUI(); });
+    this._systemMql = window.matchMedia("(prefers-color-scheme: dark)");
+    this._systemMql.addEventListener("change", () => { if (store.getTheme() === "system") this._applyResolvedTheme(); });
     this._applyTheme(store.getTheme());
     this._bind();
     this._load();
   }
-  _applyTheme(t) { document.documentElement.setAttribute("data-theme", t); store.setTheme(t);
-    const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute("content", "#1c3d5c"); }
+  _applyTheme(pref) { store.setTheme(pref); this._applyResolvedTheme(); }
+  _applyResolvedTheme() {
+    const pref = store.getTheme();
+    const resolved = pref === "system" ? (this._systemMql.matches ? "dark" : "light") : pref;
+    document.documentElement.setAttribute("data-theme", resolved);
+    const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute("content", "#1c3d5c");
+  }
   async _load() {
     const { data, syncedPending } = await store.getAll();
     this.expenses = data;
@@ -67,14 +74,18 @@ class App {
     else { this.syncDot.className = "sync-dot offline"; this.syncLabel.textContent = `Cache locale${pc > 0 ? ` · ${pc} in coda` : ""}`; }
   }
   _bind() {
-    document.querySelectorAll("[data-nav]").forEach(b =>
+    /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll("[data-nav]")).forEach(b =>
       b.addEventListener("click", () => this.switchView(b.dataset.nav)));
     this.fab.addEventListener("click", () => this.openAddForm());
+    // Torna online: svuota la coda offline nell'istante in cui rientra la rete
+    window.addEventListener("online", () => {
+      if (store.pendingCount() > 0) this.forceSync();
+    });
   }
   switchView(v) {
     this.currentView = v;
     Object.entries(this.el).forEach(([k, el]) => el.classList.toggle("hidden", k !== v));
-    document.querySelectorAll("[data-nav]").forEach(b => b.classList.toggle("on", b.dataset.nav === v));
+    /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll("[data-nav]")).forEach(b => b.classList.toggle("on", b.dataset.nav === v));
     this.fab.classList.toggle("hidden", v === "settings");
     this.render();
   }
@@ -83,8 +94,11 @@ class App {
       case "home":
         renderHome(this.el.home, this.expenses, {
           onEditExpense: id => this.openEditForm(id),
+          onDelete: id => this.deleteExpense(id),
+          onClone: id => this.openCloneForm(id),
           budget: store.getBudget(),
           varBudget: store.getVarBudget(),
+          catBudgets: store.getCatBudgets(),
           income: store.getIncome(),
           onNavigate: v => this.switchView(v),
         });
@@ -92,6 +106,8 @@ class App {
       case "list":
         renderList(this.el.list, this.expenses, this.filterCat, this.searchQuery, {
           onEditExpense: id => this.openEditForm(id),
+          onDelete: id => this.deleteExpense(id),
+          onClone: id => this.openCloneForm(id),
           onFilterChange: c => { this.filterCat = c; this.render(); },
           onSearchChange: q => { this.searchQuery = q; this.render(); },
         });
@@ -114,8 +130,10 @@ class App {
           onVarBudgetSave: v => { store.setVarBudget(v); this.toast(v > 0 ? `Limite aggiornato` : "Limite rimosso"); this.render(); },
           onIncomeSave: v => { store.setIncome(v); this.toast(v > 0 ? `Entrata aggiornata` : "Entrata rimossa"); this.render(); },
           onOpenTaxReport: () => showTaxReport(this.taxOverlay, this.expenses),
+          onCatBudgetSave: (cat, v) => { store.setCatBudget(cat, v); this.toast(v > 0 ? `Budget ${cat} aggiornato` : `Budget ${cat} rimosso`); this.render(); },
           getBudget: () => store.getBudget(),
           getVarBudget: () => store.getVarBudget(),
+          getCatBudgets: () => store.getCatBudgets(),
           getIncome: () => store.getIncome(),
           getTheme: () => store.getTheme(),
           getPendingCount: () => store.pendingCount(),
@@ -142,6 +160,30 @@ class App {
       else { await store.update(id, d); this.toast("Movimento aggiornato"); }
       const { data } = await store.getAll();
       this.expenses = data;
+      this.render();
+    });
+  }
+  async deleteExpense(id) {
+    const exp = this.expenses.find(e => e.id === id);
+    if (!exp) return;
+    if (!confirm(`Eliminare "${exp.name}"?`)) return;
+    await store.delete(id);
+    this.toast("Movimento eliminato");
+    const { data } = await store.getAll();
+    this.expenses = data;
+    this.render();
+  }
+  openCloneForm(id) {
+    const exp = this.expenses.find(e => e.id === id);
+    if (!exp) return;
+    // Prefill senza id → il form lo tratta come nuovo movimento
+    const prefill = { ...exp, id: undefined, name: exp.name, date: this._ds() };
+    showExpenseForm(this.formOverlay, prefill, async d => {
+      if (!d) return;
+      await store.add(d);
+      const { data } = await store.getAll();
+      this.expenses = data;
+      this.toast("Movimento clonato");
       this.render();
     });
   }

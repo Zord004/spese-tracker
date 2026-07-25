@@ -1,6 +1,7 @@
 // Catalogo categorie "vivo": parte dai default in constants.js e viene
 // aggiornato a runtime con lo schema letto da Notion (/api/schema).
 // Alle categorie nuove (non note) assegna un colore deterministico.
+/** @typedef {import("./types.js").Category} Category */
 import { CATEGORIES, INCOME_CATEGORIES } from "./constants.js";
 
 const FALLBACK_PALETTE = ["#c56a3f","#3f6098","#9a7c3b","#a34d4d","#4f8a6b","#7a5c96","#9c5a78","#4a7a96","#6a8f5a","#b0704a","#5a7ab0","#8a6a9c"];
@@ -9,9 +10,12 @@ function hashIndex(str, mod) { let h = 0; for (let i = 0; i < String(str).length
 let _exp = CATEGORIES.map(c => ({ ...c }));
 let _inc = INCOME_CATEGORIES.map(c => ({ ...c }));
 
+/** @returns {Category[]} */
 export function expenseCategories() { return _exp; }
+/** @returns {Category[]} */
 export function incomeCategories() { return _inc; }
 
+/** Aggiorna il catalogo con lo schema letto da Notion. @param {string[]} expNames @param {string[]} incNames */
 export function setCategories(expNames, incNames) {
   const knownExp = new Map(CATEGORIES.map(c => [c.id, c.color]));
   const knownInc = new Map(INCOME_CATEGORIES.map(c => [c.id, c.color]));
@@ -23,6 +27,7 @@ export function setCategories(expNames, incNames) {
   }
 }
 
+/** @param {string} id @param {string} [type] @returns {Category} */
 export function getCat(id, type = "spesa") {
   const list = type === "entrata" ? _inc : _exp;
   return list.find(c => c.id === id) || {
