@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { escapeHtml, formatCurrency, monthKey, monthLabel, monthShort, addMonths, todayISO, currentMonthKey, currentYear } from "../js/utils.js";
+import { escapeHtml, formatCurrency, monthKey, monthLabel, monthShort, addMonths, todayISO, currentMonthKey, currentYear } from "../public/js/utils.js";
 
 describe("escapeHtml", () => {
   test("neutralizza i caratteri pericolosi", () => {

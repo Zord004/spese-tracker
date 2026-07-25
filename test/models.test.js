@@ -7,8 +7,8 @@ import {
   costPerUse, taxReport, amortizationTimeline, activeAmortizations,
   monthlySpendingTrend, monthComparison, averageMonthlySpending, topExpenses,
   locationBreakdown, variableSpentThisMonth, balanceProjection, savingsRateTrend, categoryBudgetStatus,
-} from "../js/models.js";
-import { currentMonthKey, currentYear } from "../js/utils.js";
+} from "../public/js/models.js";
+import { currentMonthKey, currentYear } from "../public/js/utils.js";
 
 // ── Helper per fixture ancorate al mese corrente ──
 // I modelli usano la data odierna, quindi le fixture sono relative a "adesso".

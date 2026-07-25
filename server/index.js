@@ -15,30 +15,60 @@ const DATABASE_ID = process.env.NOTION_DATABASE_ID;
 if (!process.env.NOTION_TOKEN || !DATABASE_ID) { console.error("Missing .env (NOTION_TOKEN / NOTION_DATABASE_ID)"); process.exit(1); }
 
 // ─────────────────────────────────────────────
-// Basic Auth opzionale (attiva solo se le variabili sono presenti)
+// Autenticazione (Basic Auth)
 // ─────────────────────────────────────────────
 const AUTH_USER = process.env.BASIC_AUTH_USER;
 const AUTH_PASS = process.env.BASIC_AUTH_PASS;
-function safeEqual(a, b) { if (a.length !== b.length) return false; let r = 0; for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r === 0; }
+const IS_PROD = process.env.NODE_ENV === "production";
+
+// In produzione l'autenticazione è OBBLIGATORIA: senza credenziali il server
+// non parte, così l'app non può finire online pubblica senza accorgersene.
+if (IS_PROD && !(AUTH_USER && AUTH_PASS)) {
+  console.error("SICUREZZA: in produzione servono BASIC_AUTH_USER e BASIC_AUTH_PASS. Avvio annullato.");
+  process.exit(1);
+}
+
+// Confronto a tempo costante (evita timing attack sulla password)
+function safeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let r = 0; for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
+
 if (AUTH_USER && AUTH_PASS) {
+  // Freno al brute-force: limita i tentativi per IP. Le richieste andate a buon
+  // fine (status < 400) non consumano il budget, quindi la navigazione normale
+  // non viene mai frenata; a contare sono soprattutto i 401 (tentativi errati).
+  app.use(rateLimit({
+    windowMs: 15 * 60 * 1000, max: 30,
+    skipSuccessfulRequests: true,
+    standardHeaders: true, legacyHeaders: false,
+    message: "Troppi tentativi di accesso. Riprova più tardi.",
+  }));
   app.use((req, res, next) => {
     const h = req.headers.authorization || "";
     const [scheme, encoded] = h.split(" ");
     if (scheme === "Basic" && encoded) {
-      const [u, p] = Buffer.from(encoded, "base64").toString().split(":");
-      if (u && p && safeEqual(u, AUTH_USER) && safeEqual(p, AUTH_PASS)) return next();
+      const decoded = Buffer.from(encoded, "base64").toString();
+      const i = decoded.indexOf(":");                 // gestisce anche password che contengono ":"
+      if (i !== -1) {
+        const u = decoded.slice(0, i), p = decoded.slice(i + 1);
+        if (safeEqual(u, AUTH_USER) && safeEqual(p, AUTH_PASS)) return next();
+      }
     }
     res.set("WWW-Authenticate", 'Basic realm="Spese"').status(401).send("Autenticazione richiesta");
   });
-  console.log("  🔒 Basic Auth attiva");
+  console.log("  🔒 Basic Auth attiva (rate limit sui tentativi ON)");
+} else {
+  console.warn("  ⚠️  Basic Auth NON attiva: l'app è raggiungibile senza credenziali. Impostala prima di esporla su internet.");
 }
 
 app.use(helmet({
   contentSecurityPolicy: { directives: {
     defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", "'unsafe-eval'", "https://cdnjs.cloudflare.com"],
-    styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
-    fontSrc: ["'self'", "https://fonts.gstatic.com"],
+    scriptSrc: ["'self'"],                        // nessun eval, nessun CDN: tutto self-hosted
+    styleSrc: ["'self'", "'unsafe-inline'"],      // 'unsafe-inline' serve per gli style dinamici (colori/larghezze)
+    fontSrc: ["'self'"],                          // font self-hosted in /fonts
     imgSrc: ["'self'", "data:", "blob:"],
     connectSrc: ["'self'"],
     frameAncestors: ["'none'"], objectSrc: ["'none'"],
@@ -48,7 +78,9 @@ app.use("/api/", rateLimit({ windowMs: 60000, max: 120 }));
 const wl = rateLimit({ windowMs: 60000, max: 40 });
 app.use(express.json({ limit: "16kb" }));
 app.use((req, res, next) => { if (req.path === "/" || req.path.endsWith(".html") || req.path.endsWith("sw.js")) res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate"); next(); });
-app.use(express.static(join(__dirname, ".."), { dotfiles: "deny" }));
+// Serve SOLO gli asset client in public/: il codice del server, i test e i file
+// di configurazione restano fuori dalla radice web e non sono raggiungibili.
+app.use(express.static(join(__dirname, "../public"), { dotfiles: "deny" }));
 
 // ─────────────────────────────────────────────
 // Schema dinamico letto da Notion e tenuto in cache in memoria
@@ -251,14 +283,14 @@ app.post("/api/expenses", wl, async (req, res) => {
   const v = validate(req.body);
   if (!v.valid) return res.status(400).json({ ok: false, error: v.error });
   try { await applyCurrency(v.data); const p = await safeCreate(v.data); res.json({ ok: true, data: toExp(p) }); }
-  catch (e) { console.error("POST:", e.message); res.status(500).json({ ok: false, error: e.message }); }
+  catch (e) { console.error("POST:", e.message); res.status(500).json({ ok: false, error: "Errore nel salvataggio" }); }
 });
 app.put("/api/expenses/:id", wl, async (req, res) => {
   if (!isId(req.params.id)) return res.status(400).json({ ok: false, error: "ID" });
   const v = validate(req.body);
   if (!v.valid) return res.status(400).json({ ok: false, error: v.error });
   try { await applyCurrency(v.data); const p = await safeUpdate(req.params.id, v.data); res.json({ ok: true, data: toExp(p) }); }
-  catch (e) { console.error("PUT:", e.message); res.status(500).json({ ok: false, error: e.message }); }
+  catch (e) { console.error("PUT:", e.message); res.status(500).json({ ok: false, error: "Errore nell'aggiornamento" }); }
 });
 app.delete("/api/expenses/:id", wl, async (req, res) => {
   if (!isId(req.params.id)) return res.status(400).json({ ok: false, error: "ID" });
@@ -318,6 +350,6 @@ app.get("/api/autocomplete", rateLimit({ windowMs: 60000, max: 80 }), async (req
 app.all("/api/*", (_, res) => res.status(404).json({ ok: false, error: "Not found" }));
 
 app.listen(Number(PORT), HOST, async () => {
-  console.log(`\n  Spese Tracker v9.4\n  http://localhost:${PORT}\n`);
+  console.log(`\n  Spese Tracker v9.5\n  http://localhost:${PORT}\n`);
   await loadSchema();
 });

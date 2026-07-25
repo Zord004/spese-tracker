@@ -18,3 +18,6 @@ services:
         sync: false
       - key: HOST
         value: 0.0.0.0
+      # Attiva l'obbligo di autenticazione: senza BASIC_AUTH_* il server non parte
+      - key: NODE_ENV
+        value: production
