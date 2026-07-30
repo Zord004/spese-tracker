@@ -5,7 +5,10 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { createRequire } from "module";
 
+const require = createRequire(import.meta.url);
+const { version: APP_VERSION } = require("../package.json");
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -350,6 +353,6 @@ app.get("/api/autocomplete", rateLimit({ windowMs: 60000, max: 80 }), async (req
 app.all("/api/*", (_, res) => res.status(404).json({ ok: false, error: "Not found" }));
 
 app.listen(Number(PORT), HOST, async () => {
-  console.log(`\n  Spese Tracker v9.5\n  http://localhost:${PORT}\n`);
+  console.log(`\n  Spese Tracker v${APP_VERSION}\n  http://localhost:${PORT}\n`);
   await loadSchema();
 });

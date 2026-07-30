@@ -3,10 +3,20 @@
 [![CI](https://github.com/Zord004/spese-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Zord004/spese-tracker/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-installabile-1c3d5c)
-![Versione](https://img.shields.io/badge/versione-9.5.0-9a7c3b)
+![Versione](https://img.shields.io/badge/versione-9.5.1-9a7c3b)
 
 Tracker di spese personali con sincronizzazione su Notion.
 Backend Node.js/Express, frontend vanilla JS. PWA installabile e utilizzabile offline.
+
+## Correzioni v9.5.1
+
+**Spese ricorrenti nel grafico Andamento.** Le ricorrenti (abbonamenti, affitto…)
+venivano conteggiate solo nel mese in cui erano state inserite, non nei mesi
+successivi: il grafico degli ultimi 6 mesi mostrava mesi vuoti e non coincideva
+con la "Spesa del mese" in Home. Ora una regola unica imputa a ogni mese la quota
+corretta — ricorrenti da ogni mese dall'origine in poi, ammortamenti come quota
+mensile, spese una tantum nel loro mese — e la barra del mese corrente nel grafico
+coincide con la Home.
 
 ## Novità v9.5 — irrobustimento sicurezza
 

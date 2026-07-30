@@ -47,10 +47,28 @@ export function totalRecurringMonthly(expenses) {
 }
 export function recurringExpenses(expenses) { return expenses.filter(e => e.recur && e.recur !== "Nessuna"); }
 
+// Regola UNICA per l'addebito imputato a un mese (niente doppi conteggi):
+// - ricorrente → quota mensile, da ogni mese dal mese d'origine in poi
+// - ammortizzato → quota nei mesi coperti dall'ammortamento
+// - una tantum → importo pieno, solo nel suo mese
+/** @param {Expense} e @param {string} mk chiave mese YYYY-MM @returns {number} */
+export function monthlyChargeFor(e, mk) {
+  if (!isExpense(e)) return 0;
+  if (e.recur && e.recur !== "Nessuna") return monthKey(e.date) <= mk ? recurringMonthlyCost(e) : 0;
+  return isActiveInMonth(e, mk) ? monthlyCost(e) : 0;
+}
+/** Spesa totale imputata a un dato mese. @param {Expense[]} expenses @param {string} mk @returns {number} */
+export function monthTotal(expenses, mk) {
+  return expenses.reduce((s, e) => s + monthlyChargeFor(e, mk), 0);
+}
+
 /** @param {Expense[]} expenses @returns {number} */
 export function totalAmortizedThisMonth(expenses) {
   const mk = currentMonthKey();
-  return expenses.filter(isExpense).reduce((s, e) => isActiveInMonth(e, mk) ? s + monthlyCost(e) : s, 0);
+  return expenses.filter(isExpense).reduce((s, e) => {
+    if (e.recur && e.recur !== "Nessuna") return s;   // le ricorrenti contano nel loro bucket, non qui
+    return isActiveInMonth(e, mk) ? s + monthlyCost(e) : s;
+  }, 0);
 }
 /** @param {Expense[]} expenses @returns {number} */
 export function totalSpent(expenses) { return expenses.filter(isExpense).reduce((s, e) => s + e.amount, 0); }
@@ -148,9 +166,9 @@ export function taxReport(expenses, year = currentYear()) {
 export function amortizationTimeline(expenses) { const m = {}; expenses.filter(isExpense).forEach(e => { const am = Math.trunc(Number(e.am)) || 1; if (am <= 1) return; getAmortizationMonths(e).forEach(mk => { m[mk] = (m[mk] || 0) + monthlyCost(e); }); }); return Object.entries(m).sort((a, b) => a[0].localeCompare(b[0])); }
 export function activeAmortizations(expenses) { const mk = currentMonthKey(); return expenses.filter(e => isExpense(e) && (Math.trunc(Number(e.am)) || 1) > 1 && isActiveInMonth(e, mk)); }
 /** @param {Expense[]} expenses @param {number} [n] */
-export function monthlySpendingTrend(expenses, n = 6) { const now = new Date(), months = []; for (let i = n - 1; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push(monthKey(d.toISOString())); } return months.map(mk => ({ mk, total: expenses.filter(e => isExpense(e) && monthKey(e.date) === mk).reduce((s, e) => s + e.amount, 0) })); }
+export function monthlySpendingTrend(expenses, n = 6) { const now = new Date(), months = []; for (let i = n - 1; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push(monthKey(d.toISOString())); } return months.map(mk => ({ mk, total: monthTotal(expenses, mk) })); }
 /** @param {Expense[]} expenses @returns {{current:number, previous:number, diff:number}} */
-export function monthComparison(expenses) { const now = new Date(), cur = monthKey(now.toISOString()), prev = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()); const c = expenses.filter(e => isExpense(e) && monthKey(e.date) === cur).reduce((s, e) => s + e.amount, 0); const p = expenses.filter(e => isExpense(e) && monthKey(e.date) === prev).reduce((s, e) => s + e.amount, 0); return { current: c, previous: p, diff: c - p }; }
+export function monthComparison(expenses) { const now = new Date(), cur = currentMonthKey(), prev = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()); const c = monthTotal(expenses, cur), p = monthTotal(expenses, prev); return { current: c, previous: p, diff: c - p }; }
 export function averageMonthlySpending(expenses, n = 6) { const t = monthlySpendingTrend(expenses, n); return t.reduce((s, m) => s + m.total, 0) / n; }
 /** @param {Expense[]} expenses @param {number} [n] @returns {Expense[]} */
 export function topExpenses(expenses, n = 5) { return [...expenses.filter(isExpense)].sort((a, b) => b.amount - a.amount).slice(0, n); }

@@ -7,6 +7,7 @@ import {
   costPerUse, taxReport, amortizationTimeline, activeAmortizations,
   monthlySpendingTrend, monthComparison, averageMonthlySpending, topExpenses,
   locationBreakdown, variableSpentThisMonth, balanceProjection, savingsRateTrend, categoryBudgetStatus,
+  monthlyChargeFor, monthTotal,
 } from "../public/js/models.js";
 import { currentMonthKey, currentYear } from "../public/js/utils.js";
 
@@ -315,6 +316,71 @@ describe("categoryBudgetStatus", () => {
   test("nessun budget impostato non produce righe", () => {
     assert.deepEqual(categoryBudgetStatus(data, {}), []);
     assert.deepEqual(categoryBudgetStatus(data), []);
+  });
+});
+
+describe("monthlyChargeFor e monthTotal (regola unica per mese)", () => {
+  test("una tantum: conta solo nel suo mese", () => {
+    const e = spesa({ amount: 100, date: dateInMonth(0, 10), recur: "Nessuna", am: 1 });
+    assert.equal(monthlyChargeFor(e, currentMonthKey()), 100);
+    // mese scorso → 0
+    const prevMk = dateInMonth(-1).slice(0, 7);
+    assert.equal(monthlyChargeFor(e, prevMk), 0);
+  });
+  // Regressione: le ricorrenti devono contare in OGNI mese dal mese d'origine
+  test("ricorrente mensile: conta ogni mese dall'origine in poi, non solo nel primo", () => {
+    const netflix = spesa({ amount: 15, date: dateInMonth(-3, 10), recur: "Mensile", nature: "fisso" });
+    const originMk = dateInMonth(-3).slice(0, 7);
+    const midMk = dateInMonth(-1).slice(0, 7);
+    const curMk = currentMonthKey();
+    assert.equal(monthlyChargeFor(netflix, originMk), 15, "mese d'origine");
+    assert.equal(monthlyChargeFor(netflix, midMk), 15, "mese intermedio");
+    assert.equal(monthlyChargeFor(netflix, curMk), 15, "mese corrente");
+  });
+  test("ricorrente: NON conta nei mesi precedenti all'origine", () => {
+    const e = spesa({ amount: 15, date: dateInMonth(0, 10), recur: "Mensile" });
+    const prevMk = dateInMonth(-2).slice(0, 7);
+    assert.equal(monthlyChargeFor(e, prevMk), 0);
+  });
+  test("ricorrente annuale: spalmata a 1/12 ogni mese dall'origine", () => {
+    const e = spesa({ amount: 1200, date: dateInMonth(-2, 10), recur: "Annuale", nature: "fisso" });
+    assert.equal(monthlyChargeFor(e, currentMonthKey()), 100);
+  });
+  test("ammortizzato: quota solo nei mesi coperti", () => {
+    const e = spesa({ amount: 1200, date: dateInMonth(-2, 1), recur: "Nessuna", am: 12 });
+    assert.equal(monthlyChargeFor(e, currentMonthKey()), 100);
+    // 20 mesi fa non era ancora iniziato
+    assert.equal(monthlyChargeFor(e, dateInMonth(-20).slice(0, 7)), 0);
+  });
+  test("monthTotal somma tutto correttamente", () => {
+    const data = [
+      spesa({ amount: 700, date: dateInMonth(-5, 1), recur: "Mensile", nature: "fisso" }),
+      spesa({ amount: 15, date: dateInMonth(-3, 1), recur: "Mensile", nature: "fisso" }),
+      spesa({ amount: 50, date: dateInMonth(0, 10), recur: "Nessuna" }),
+    ];
+    // mese corrente: 700 + 15 + 50 = 765
+    assert.equal(monthTotal(data, currentMonthKey()), 765);
+    // due mesi fa: solo affitto 700 + netflix 15 = 715 (la spesa una tantum non c'era)
+    assert.equal(monthTotal(data, dateInMonth(-2).slice(0, 7)), 715);
+  });
+});
+
+describe("monthlySpendingTrend con ricorrenti (regressione)", () => {
+  test("una ricorrente compare in tutti i mesi dall'origine, non solo nel primo", () => {
+    const data = [spesa({ amount: 100, date: dateInMonth(-4, 10), recur: "Mensile", nature: "fisso" })];
+    const trend = monthlySpendingTrend(data, 6);
+    // origine 4 mesi fa: gli ultimi 5 mesi (da -4 a 0) devono valere 100, il più vecchio (-5) 0
+    assert.equal(trend[0].total, 0, "mese precedente all'origine");
+    assert.equal(trend[1].total, 100);
+    assert.equal(trend[5].total, 100, "mese corrente");
+  });
+  test("il mese corrente del grafico coincide con monthTotal del mese corrente", () => {
+    const data = [
+      spesa({ amount: 700, date: dateInMonth(-5, 1), recur: "Mensile", nature: "fisso" }),
+      spesa({ amount: 50, date: dateInMonth(0, 10) }),
+    ];
+    const trend = monthlySpendingTrend(data, 6);
+    assert.equal(trend[5].total, monthTotal(data, currentMonthKey()));
   });
 });
 

@@ -1,11 +1,11 @@
-import { totalAmortizedThisMonth, totalSpent, categoryBreakdown, getCategoryById, totalRecurringMonthly, totalIncomeThisMonth, isIncome, isExpense, monthComparison, savingsRate, variableSpentThisMonth, balanceProjection, categoryBudgetStatus } from "../models.js";
-import { escapeHtml, formatCurrency, formatDate } from "../utils.js";
+import { totalAmortizedThisMonth, totalSpent, categoryBreakdown, getCategoryById, totalRecurringMonthly, totalIncomeThisMonth, isIncome, isExpense, monthComparison, savingsRate, variableSpentThisMonth, balanceProjection, categoryBudgetStatus, monthTotal } from "../models.js";
+import { escapeHtml, formatCurrency, formatDate, currentMonthKey } from "../utils.js";
 import { attachSwipe, swipeWrap } from "../swipe.js";
 
 export function renderHome(container, expenses, { onEditExpense, onDelete, onClone, budget, varBudget, catBudgets, income, onNavigate }) {
   const amort = totalAmortizedThisMonth(expenses);
   const recur = totalRecurringMonthly(expenses);
-  const monthCost = amort + recur;
+  const monthCost = monthTotal(expenses, currentMonthKey());
   const cats = categoryBreakdown(expenses);
   const maxCat = Math.max(...cats.map(c => c.total), 1);
   const recent = [...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6);
