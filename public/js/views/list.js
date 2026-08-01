@@ -30,6 +30,12 @@ export function renderList(container, expenses, filterCat, searchQuery, callback
     ...expenseCategories().map(c => ({ v: c.id, label: c.id, color: c.color })),
   ];
 
+  // Se la ricerca aveva il focus, lo ripristino dopo il re-render (altrimenti
+  // ogni aggiornamento dei risultati farebbe perdere il cursore mentre si scrive).
+  const prevInput = container.querySelector("#search-input");
+  const hadFocus = prevInput && document.activeElement === prevInput;
+  const caret = hadFocus ? prevInput.selectionStart : null;
+
   container.innerHTML = `
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -48,6 +54,7 @@ export function renderList(container, expenses, filterCat, searchQuery, callback
   `;
 
   const inp = container.querySelector("#search-input");
+  if (hadFocus && inp) { inp.focus(); const pos = caret ?? inp.value.length; try { inp.setSelectionRange(pos, pos); } catch {} }
   let db;
   inp?.addEventListener("input", () => { clearTimeout(db); db = setTimeout(() => callbacks.onSearchChange(inp.value), 200); });
   container.querySelectorAll("[data-filter]").forEach(b => b.addEventListener("click", () => callbacks.onFilterChange(b.dataset.filter)));

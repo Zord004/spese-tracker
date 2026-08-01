@@ -171,7 +171,7 @@ function validate(b) {
   const catList = type === "entrata" ? schema.incomeCats : schema.expenseCats;
   const cat = catList.includes(b.cat) ? b.cat : "Altro";
   // La descrizione è obbligatoria solo per le spese. Per un'entrata senza
-  // descrizione si usa la categoria come nome (es. "Stipendio").
+  // descrizione si usa il nome generico "Entrata".
   const hasName = !!(b.name && typeof b.name === "string" && b.name.trim());
   if (type !== "entrata" && !hasName) err.push("Nome obbligatorio");
   const name = esc(String((hasName ? b.name : (type === "entrata" ? "Entrata" : "")) || "").trim()).slice(0, 200);
@@ -250,7 +250,10 @@ function toN(d) {
     "Valuta": { select: { name: d.currency || "EUR" } },
     "Importo originale": { number: d.originalAmount != null ? d.originalAmount : d.amount },
   };
-  props["Ricorrenza"] = { select: { name: stdRecur.includes(d.recur) ? d.recur : "Mensile" } };
+  // Ricorrenza: accetta le standard e la personalizzata "Ogni N mesi"
+  // (Notion crea l'opzione select al volo). Solo valori ignoti → "Nessuna".
+  const recurName = stdRecur.includes(d.recur) || isCustomRecur(d.recur) ? d.recur : "Nessuna";
+  props["Ricorrenza"] = { select: { name: recurName } };
   return props;
 }
 

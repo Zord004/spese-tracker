@@ -226,8 +226,14 @@ class App {
     const f = ev.target.files?.[0]; if (!f) return;
     const r = new FileReader();
     r.onload = async e => {
-      try { const d = await store.importJSON(e.target.result); this.expenses = d; this.toast(`${d.length} importate`); this.render(); }
-      catch { this.toast("Errore nell'importazione"); }
+      if (!confirm("I movimenti importati verranno AGGIUNTI al tuo Notion (possibili duplicati se già presenti). Procedere?")) { ev.target.value = ""; return; }
+      try {
+        const { imported, synced } = await store.importJSON(e.target.result);
+        const { data } = await store.getAll(); this.expenses = data;
+        this.toast(synced < imported ? `${synced}/${imported} importate (resto in coda)` : `${imported} importate`);
+        this.render();
+      } catch { this.toast("Errore nell'importazione"); }
+      finally { ev.target.value = ""; }
     };
     r.readAsText(f);
   }

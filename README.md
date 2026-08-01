@@ -3,7 +3,7 @@
 [![CI](https://github.com/Zord004/spese-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Zord004/spese-tracker/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-installabile-1c3d5c)
-![Versione](https://img.shields.io/badge/versione-9.7.0-9a7c3b)
+![Versione](https://img.shields.io/badge/versione-9.7.1-9a7c3b)
 
 Tracker di spese personali che usa **Notion come database**. Interfaccia web
 installabile come app (PWA), utilizzabile offline, con estetica sobria da

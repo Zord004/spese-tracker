@@ -2,6 +2,25 @@
 
 Tutte le modifiche di rilievo, dalla più recente.
 
+## 9.7.1 — Correzioni da audit
+
+- **Ricorrenza personalizzata ora salvata correttamente.** "Ogni N mesi" veniva
+  scritta su Notion come "Mensile" (perdita di dato, costo mensile sballato).
+- **Grafici coerenti.** Il grafico del tasso di risparmio, `fissi/variabili`, la
+  barra del budget variabile, i budget per categoria e la proiezione del saldo
+  ora usano tutti la stessa regola mensile della "Spesa del mese": ricorrenti e
+  ammortamenti contano come quota in ogni mese attivo. Prima alcune sezioni
+  mostravano cifre incoerenti tra loro.
+- **Ricerca**: non perde più il focus mentre si scrive.
+- **Import**: i movimenti importati vengono ora davvero aggiunti a Notion (prima
+  restavano solo in cache e sparivano alla sincronizzazione successiva).
+- **Offline più robusto**: niente doppio invio in caso di sync concorrenti;
+  modificare o eliminare un movimento non ancora sincronizzato non perde più la
+  modifica né lo ricrea per errore.
+- **Date**: attribuzione di mese/anno indipendente dal fuso orario; le date
+  future non mostrano più "-3g fa".
+- **Pulizia**: rimosso codice e import inutilizzati.
+
 ## 9.7.0
 
 - **Descrizione facoltativa per le entrate.** Registrando un'entrata, la

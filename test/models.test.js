@@ -7,7 +7,7 @@ import {
   costPerUse, taxReport, amortizationTimeline, activeAmortizations,
   monthlySpendingTrend, monthComparison, averageMonthlySpending, topExpenses,
   locationBreakdown, variableSpentThisMonth, balanceProjection, savingsRateTrend, categoryBudgetStatus,
-  monthlyChargeFor, monthTotal,
+  monthlyChargeFor, monthTotal, monthlyIncomeChargeFor,
 } from "../public/js/models.js";
 import { currentMonthKey, currentYear } from "../public/js/utils.js";
 
@@ -397,6 +397,48 @@ describe("monthlySpendingTrend con ricorrenti (regressione)", () => {
     ];
     const trend = monthlySpendingTrend(data, 6);
     assert.equal(trend[5].total, monthTotal(data, currentMonthKey()));
+  });
+});
+
+describe("coerenza tra le funzioni mensili (regressione)", () => {
+  const data = [
+    spesa({ cat: "Casa", amount: 800, date: dateInMonth(-4, 10), recur: "Mensile", nature: "fisso" }),
+    spesa({ cat: "Tecnologia", amount: 1200, date: dateInMonth(-2, 1), recur: "Nessuna", nature: "variabile", am: 12 }),
+    spesa({ cat: "Cibo", amount: 60, date: dateInMonth(0, 10), recur: "Nessuna", nature: "variabile" }),
+    entrata({ amount: 2000, date: dateInMonth(-4, 3), recur: "Mensile" }),
+  ];
+  const cur = currentMonthKey();
+
+  test("il grafico spesa e quello del tasso di risparmio usano la stessa spesa", () => {
+    const sp = monthlySpendingTrend(data, 6);
+    const sr = savingsRateTrend(data, 0, 6);
+    sp.forEach((s, i) => assert.equal(s.total, sr[i].spent, `mese ${s.mk}`));
+  });
+  test("le entrate ricorrenti si proiettano nel tasso di risparmio", () => {
+    const sr = savingsRateTrend(data, 0, 6);
+    assert.equal(sr[5].income, 2000, "stipendio mensile presente nel mese corrente");
+    assert.equal(sr[1].income, 2000, "e anche nei mesi successivi all'origine");
+  });
+  test("fissi + variabili == monthTotal del mese", () => {
+    const fv = fixedVsVariable(data);
+    assert.equal(fv.fixedMonthly + fv.variableMonthly, monthTotal(data, cur));
+  });
+  test("l'ammortamento pesa come quota mensile nella spesa variabile", () => {
+    assert.equal(variableSpentThisMonth(data), 160); // PC 100 + Cibo 60 (l'affitto è fisso)
+  });
+  test("budget per categoria e ripartizione coincidono per la stessa categoria", () => {
+    const bud = categoryBudgetStatus(data, { Casa: 1000, Tecnologia: 500 });
+    const brk = categoryBreakdown(data, cur);
+    ["Casa", "Tecnologia"].forEach(c => {
+      const b = bud.find(x => x.id === c)?.spent;
+      const r = brk.find(x => x.id === c)?.total;
+      assert.equal(b, r, `categoria ${c}`);
+    });
+  });
+  test("balanceProjection: spentSoFar + upcoming == spesa totale del mese", () => {
+    const p = balanceProjection(data, 0);
+    assert.equal(p.spentSoFar + p.upcoming, monthTotal(data, cur));
+    assert.equal(p.projectedExpenses, monthTotal(data, cur));
   });
 });
 

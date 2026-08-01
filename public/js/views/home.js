@@ -1,4 +1,4 @@
-import { totalAmortizedThisMonth, totalSpent, categoryBreakdown, getCategoryById, totalRecurringMonthly, totalIncomeThisMonth, isIncome, isExpense, monthComparison, savingsRate, variableSpentThisMonth, balanceProjection, categoryBudgetStatus, monthTotal } from "../models.js";
+import { totalAmortizedThisMonth, categoryBreakdown, getCategoryById, totalRecurringMonthly, totalIncomeThisMonth, isIncome, isExpense, monthComparison, variableSpentThisMonth, balanceProjection, categoryBudgetStatus, monthTotal } from "../models.js";
 import { escapeHtml, formatCurrency, formatDate, currentMonthKey } from "../utils.js";
 import { attachSwipe, swipeWrap } from "../swipe.js";
 

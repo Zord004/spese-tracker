@@ -1,4 +1,4 @@
-import { categoryBreakdown, monthlySpendingTrend, monthComparison, averageMonthlySpending, topExpenses, getCategoryById, totalRecurringMonthly, totalAmortizedThisMonth, fixedVsVariable, taxReport, totalIncomeThisMonth, savingsRate, savingsRateTrend, amortizationTimeline, activeAmortizations, recurringExpenses, recurringMonthlyCost, costPerUse, isExpense, locationBreakdown, monthTotal } from "../models.js";
+import { categoryBreakdown, monthlySpendingTrend, monthComparison, averageMonthlySpending, topExpenses, getCategoryById, fixedVsVariable, taxReport, totalIncomeThisMonth, savingsRate, savingsRateTrend, amortizationTimeline, activeAmortizations, recurringExpenses, recurringMonthlyCost, costPerUse, isExpense, locationBreakdown, monthTotal } from "../models.js";
 import { escapeHtml, formatCurrency, currentMonthKey, monthShort, monthLabel, currentYear } from "../utils.js";
 
 let _tab = "overview";

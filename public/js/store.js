@@ -86,20 +86,24 @@ class ExpenseStore {
 
   /** Svuota la coda offline con pacing anti rate-limit. @returns {Promise<number>} operazioni riuscite */
   async syncPending() {
-    const queue = await this._getPending(); if (!queue.length) return 0;
-    let synced = 0; const remaining = [];
-    const pause = (ms) => new Promise(r => setTimeout(r, ms));
-    for (let i = 0; i < queue.length; i++) {
-      const op = queue[i];
-      try {
-        if (op.type === "add") { await this._api("", { method: "POST", body: JSON.stringify(op.data) }); synced++; }
-        else if (op.type === "update") { await this._api(`/${op.id}`, { method: "PUT", body: JSON.stringify(op.data) }); synced++; }
-        else if (op.type === "delete") { await this._api(`/${op.id}`, { method: "DELETE" }); synced++; }
-      } catch { remaining.push(op); }
-      // Pacing: ~350ms tra un'operazione e l'altra, sotto il limite di 3 req/s di Notion
-      if (i < queue.length - 1) await pause(350);
-    }
-    await this._setPending(remaining); return synced;
+    if (this._syncing) return 0;          // evita esecuzioni sovrapposte (doppio invio)
+    this._syncing = true;
+    try {
+      const queue = await this._getPending(); if (!queue.length) return 0;
+      let synced = 0; const remaining = [];
+      const pause = (ms) => new Promise(r => setTimeout(r, ms));
+      for (let i = 0; i < queue.length; i++) {
+        const op = queue[i];
+        try {
+          if (op.type === "add") { await this._api("", { method: "POST", body: JSON.stringify(op.data) }); synced++; }
+          else if (op.type === "update") { await this._api(`/${op.id}`, { method: "PUT", body: JSON.stringify(op.data) }); synced++; }
+          else if (op.type === "delete") { await this._api(`/${op.id}`, { method: "DELETE" }); synced++; }
+        } catch { remaining.push(op); }
+        // Pacing: ~350ms tra un'operazione e l'altra, sotto il limite di 3 req/s di Notion
+        if (i < queue.length - 1) await pause(350);
+      }
+      await this._setPending(remaining); return synced;
+    } finally { this._syncing = false; }
   }
 
   async geocode(place) {
@@ -137,8 +141,8 @@ class ExpenseStore {
     this._emit({ syncing: true, error: null });
     try { const r = await this._api("", { method: "POST", body: JSON.stringify(exp) });
       if (r.ok) { const all = await this._api(""); if (all.ok) await this._setCache(all.data); this._emit({ syncing: false, error: null, source: "notion" }); return { data: r.data }; } throw new Error();
-    } catch (e) { await this._addPending({ type: "add", data: exp, ts: Date.now() }); const c = await this._getCache();
-      const local = { ...exp, id: `pending_${Date.now()}`, _pending: true }; c.unshift(local); await this._setCache(c);
+    } catch (e) { const ts = Date.now(); await this._addPending({ type: "add", data: exp, ts }); const c = await this._getCache();
+      const local = { ...exp, id: `pending_${ts}`, _pending: true }; c.unshift(local); await this._setCache(c);
       this._emit({ syncing: false, error: e.message, source: "cache" }); return { data: local }; }
   }
   /** @param {string} id @param {Expense} u */
@@ -146,14 +150,26 @@ class ExpenseStore {
     if (u.location) this.geocode(u.location).catch(() => {});
     this._emit({ syncing: true, error: null });
     try { await this._api(`/${id}`, { method: "PUT", body: JSON.stringify(u) }); const all = await this._api(""); if (all.ok) await this._setCache(all.data); this._emit({ syncing: false, error: null, source: "notion" });
-    } catch (e) { if (!id.startsWith("pending_")) await this._addPending({ type: "update", id, data: u, ts: Date.now() });
+    } catch (e) {
+      if (id.startsWith("pending_")) {
+        // Elemento non ancora sincronizzato: aggiorno i dati dell'operazione 'add' in coda,
+        // così al sync viene creato con i valori corretti (invece di perdere la modifica).
+        const ts = Number(id.slice("pending_".length));
+        const q = await this._getPending(); const op = q.find(o => o.type === "add" && o.ts === ts);
+        if (op) { op.data = { ...op.data, ...u }; await this._setPending(q); }
+      } else await this._addPending({ type: "update", id, data: u, ts: Date.now() });
       await this._setCache((await this._getCache()).map(x => x.id === id ? { ...x, ...u } : x)); this._emit({ syncing: false, error: e.message, source: "cache" }); }
   }
   /** @param {string} id */
   async delete(id) {
     this._emit({ syncing: true, error: null });
     try { await this._api(`/${id}`, { method: "DELETE" }); const all = await this._api(""); if (all.ok) await this._setCache(all.data); this._emit({ syncing: false, error: null, source: "notion" });
-    } catch (e) { if (!id.startsWith("pending_")) await this._addPending({ type: "delete", id, ts: Date.now() });
+    } catch (e) {
+      if (id.startsWith("pending_")) {
+        // Non ancora sincronizzato: rimuovo l'operazione 'add' dalla coda, così non verrà creato.
+        const ts = Number(id.slice("pending_".length));
+        await this._setPending((await this._getPending()).filter(o => !(o.type === "add" && o.ts === ts)));
+      } else await this._addPending({ type: "delete", id, ts: Date.now() });
       await this._setCache((await this._getCache()).filter(x => x.id !== id)); this._emit({ syncing: false, error: e.message, source: "cache" }); }
   }
   async clearCache() { await idb.removeItem(this._key); await idb.removeItem(PENDING_KEY); this._pendingCount = 0; }
@@ -165,6 +181,22 @@ class ExpenseStore {
       return `${esc(x.type||"spesa")},${esc(x.name)},${x.amount},${x.date},${esc(x.cat)},${esc(x.nature || "variabile")},${x.am || 1},${esc(x.recur || "Nessuna")},${esc(x.location || "")},${x.detraibile ? "Sì" : "No"},${x.detrazionePct || 0},${x.utilizzi || 0},${esc(x.note)}`; });
     return [h, ...rows].join("\n");
   }
-  async importJSON(j) { const d = JSON.parse(j); if (!Array.isArray(d)) throw new Error("Invalid"); await this._setCache(d); return d; }
+  /** Importa movimenti AGGIUNGENDOLI a Notion (coda offline-safe), non solo in cache. */
+  async importJSON(j) {
+    const d = JSON.parse(j);
+    if (!Array.isArray(d)) throw new Error("Invalid");
+    const q = await this._getPending();
+    let ts = Date.now();
+    for (const item of d) {
+      const { id, _pending, originalAmount, ...clean } = item || {};   // scarta id/flag locali
+      if (!clean.name && clean.type !== "entrata") continue;           // salta righe evidentemente vuote
+      q.push({ type: "add", data: clean, ts: ts++ });
+    }
+    await this._setPending(q);
+    const synced = await this.syncPending();
+    const all = await this._api("").catch(() => null);
+    if (all?.ok) await this._setCache(all.data);
+    return { imported: d.length, synced };
+  }
 }
 export const store = new ExpenseStore();

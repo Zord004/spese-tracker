@@ -7,8 +7,7 @@
  * @typedef {import("./types.js").Projection} Projection
  * @typedef {import("./types.js").CatBudgets} CatBudgets
  */
-import { CATEGORIES, INCOME_CATEGORIES } from "./constants.js";
-import { getCat, expenseCategories } from "./catalog.js";
+import { getCat } from "./catalog.js";
 import { monthKey, addMonths, currentMonthKey, currentYear } from "./utils.js";
 
 /** @param {Expense} e @returns {boolean} */
@@ -26,7 +25,6 @@ export function getAmortizationMonths(e) {
 export function monthlyCost(e) { return e.amount / Math.max(1, Math.trunc(Number(e.am)) || 1); }
 /** @param {Expense} e @param {string} mk chiave mese YYYY-MM @returns {boolean} */
 export function isActiveInMonth(e, mk) { return getAmortizationMonths(e).includes(mk); }
-export function amortizationProgress(e) { const mk = currentMonthKey(), m = getAmortizationMonths(e), el = m.filter(x => x <= mk).length; const am = Math.max(1, Math.trunc(Number(e.am)) || 1); return { elapsed: el, total: am, ratio: el / am }; }
 
 /** Costo mensile equivalente di una ricorrenza. @param {Expense} e @returns {number} */
 export function recurringMonthlyCost(e) {
@@ -60,6 +58,13 @@ export function monthlyChargeFor(e, mk) {
 /** Spesa totale imputata a un dato mese. @param {Expense[]} expenses @param {string} mk @returns {number} */
 export function monthTotal(expenses, mk) {
   return expenses.reduce((s, e) => s + monthlyChargeFor(e, mk), 0);
+}
+// Equivalente per le ENTRATE: ricorrenti dal mese d'origine in poi, una tantum nel loro mese.
+/** @param {Expense} e @param {string} mk @returns {number} */
+export function monthlyIncomeChargeFor(e, mk) {
+  if (!isIncome(e)) return 0;
+  if (e.recur && e.recur !== "Nessuna") return monthKey(e.date) <= mk ? recurringMonthlyCost(e) : 0;
+  return monthKey(e.date) === mk ? e.amount : 0;
 }
 
 /** @param {Expense[]} expenses @returns {number} */
@@ -107,14 +112,11 @@ export function categoryBreakdown(expenses, mk = currentMonthKey()) {
 export function fixedVsVariable(expenses) {
   const mk = currentMonthKey();
   const exps = expenses.filter(isExpense);
-  const fixed = exps.filter(e => e.nature === "fisso");
-  const variable = exps.filter(e => e.nature !== "fisso");
-  const calc = arr => arr.reduce((s, e) => {
-    const recur = recurringMonthlyCost(e);
-    const amort = isActiveInMonth(e, mk) ? monthlyCost(e) : 0;
-    return s + Math.max(recur, amort);
-  }, 0);
-  return { fixedMonthly: calc(fixed), variableMonthly: calc(variable) };
+  const calc = arr => arr.reduce((s, e) => s + monthlyChargeFor(e, mk), 0);
+  return {
+    fixedMonthly: calc(exps.filter(e => e.nature === "fisso")),
+    variableMonthly: calc(exps.filter(e => e.nature !== "fisso")),
+  };
 }
 
 /** @param {number} income @param {number} monthlyExpenses @returns {number} percentuale 0-100 */
@@ -130,9 +132,11 @@ export function costPerUse(e) {
   return e.amount / uses;
 }
 
+// Anno dalla stringa 'YYYY-MM-DD' (robusto al fuso, a differenza di new Date().getFullYear())
+function yearOf(d) { return typeof d === "string" && /^\d{4}/.test(d) ? Number(d.slice(0, 4)) : new Date(d).getFullYear(); }
 /** Report per il commercialista (730/Unico). @param {Expense[]} expenses @param {number} [year] */
 export function taxReport(expenses, year = currentYear()) {
-  const yearDeductible = expenses.filter(e => isExpense(e) && e.detraibile && new Date(e.date).getFullYear() === year);
+  const yearDeductible = expenses.filter(e => isExpense(e) && e.detraibile && yearOf(e.date) === year);
   const byCategory = {};
   let totalDeductibleSpent = 0, totalDeduction = 0;
   yearDeductible.forEach(e => {
@@ -144,7 +148,7 @@ export function taxReport(expenses, year = currentYear()) {
     byCategory[e.cat].items.push({ ...e, deduction });
     totalDeductibleSpent += e.amount; totalDeduction += deduction;
   });
-  const allExpenses = expenses.filter(e => isExpense(e) && new Date(e.date).getFullYear() === year);
+  const allExpenses = expenses.filter(e => isExpense(e) && yearOf(e.date) === year);
   const allByCategory = {};
   let totalAllSpent = 0;
   allExpenses.forEach(e => {
@@ -152,7 +156,7 @@ export function taxReport(expenses, year = currentYear()) {
     allByCategory[e.cat].count++; allByCategory[e.cat].spent += e.amount;
     allByCategory[e.cat].items.push(e); totalAllSpent += e.amount;
   });
-  const incomeYear = expenses.filter(e => isIncome(e) && new Date(e.date).getFullYear() === year);
+  const incomeYear = expenses.filter(e => isIncome(e) && yearOf(e.date) === year);
   const totalIncome = incomeYear.reduce((s, e) => s + e.amount, 0);
   return {
     year,
@@ -183,11 +187,7 @@ export function locationBreakdown(expenses) { const map = {}; expenses.filter(is
 /** @param {Expense[]} expenses @returns {number} */
 export function variableSpentThisMonth(expenses) {
   const mk = currentMonthKey();
-  return expenses.filter(e => isExpense(e) && e.nature !== "fisso").reduce((s, e) => {
-    const recur = recurringMonthlyCost(e);
-    if (recur > 0) return s + recur;
-    return monthKey(e.date) === mk ? s + e.amount : s;
-  }, 0);
+  return expenses.filter(e => isExpense(e) && e.nature !== "fisso").reduce((s, e) => s + monthlyChargeFor(e, mk), 0);
 }
 
 // Stato dei budget per categoria nel mese corrente.
@@ -198,10 +198,10 @@ export function categoryBudgetStatus(expenses, budgets = {}) {
   const mk = currentMonthKey();
   const spentByCat = {};
   expenses.filter(isExpense).forEach(e => {
+    const charge = monthlyChargeFor(e, mk);
+    if (charge <= 0) return;
     const id = e.cat || "Altro";
-    const recur = recurringMonthlyCost(e);
-    const amount = recur > 0 ? recur : (monthKey(e.date) === mk ? e.amount : 0);
-    if (amount > 0) spentByCat[id] = (spentByCat[id] || 0) + amount;
+    spentByCat[id] = (spentByCat[id] || 0) + charge;
   });
   return Object.entries(budgets)
     .filter(([, limit]) => limit > 0)
@@ -221,12 +221,14 @@ export function categoryBudgetStatus(expenses, budgets = {}) {
 /** @param {Expense[]} expenses @param {number} [fixedIncome] @returns {Projection} */
 export function balanceProjection(expenses, fixedIncome = 0) {
   const mk = currentMonthKey();
-  const incomeEntries = expenses.filter(e => isIncome(e) && monthKey(e.date) === mk).reduce((s, e) => s + e.amount, 0);
+  const exps = expenses.filter(isExpense);
+  const isRecurring = e => e.recur && e.recur !== "Nessuna";
+  const incomeEntries = expenses.filter(isIncome).reduce((s, e) => s + monthlyIncomeChargeFor(e, mk), 0);
   const incomeExpected = fixedIncome + incomeEntries;
-  const spentSoFar = expenses.filter(e => isExpense(e) && monthKey(e.date) === mk).reduce((s, e) => s + e.amount, 0);
-  // Ricorrenti che colpiranno ancora questo mese (la cui riga origine non è di questo mese)
-  const upcoming = expenses.filter(e => isExpense(e) && e.recur && e.recur !== "Nessuna" && monthKey(e.date) !== mk)
-    .reduce((s, e) => s + recurringMonthlyCost(e), 0);
+  // Già registrato questo mese: una tantum + quote di ammortamento
+  const spentSoFar = exps.filter(e => !isRecurring(e)).reduce((s, e) => s + monthlyChargeFor(e, mk), 0);
+  // Ricorrenti/fisse attive questo mese (quota mensile)
+  const upcoming = exps.filter(isRecurring).reduce((s, e) => s + monthlyChargeFor(e, mk), 0);
   const projectedExpenses = spentSoFar + upcoming;
   return { incomeExpected, spentSoFar, upcoming, projectedExpenses, projectedBalance: incomeExpected - projectedExpenses };
 }
@@ -237,8 +239,8 @@ export function savingsRateTrend(expenses, fixedIncome = 0, n = 6) {
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const mk = monthKey(d.toISOString());
-    const spent = expenses.filter(e => isExpense(e) && monthKey(e.date) === mk).reduce((s, e) => s + e.amount, 0);
-    const incomeEntries = expenses.filter(e => isIncome(e) && monthKey(e.date) === mk).reduce((s, e) => s + e.amount, 0);
+    const spent = monthTotal(expenses, mk);
+    const incomeEntries = expenses.filter(e => isIncome(e) && monthlyIncomeChargeFor(e, mk) > 0).reduce((s, e) => s + monthlyIncomeChargeFor(e, mk), 0);
     const income = fixedIncome + incomeEntries;
     const rate = income > 0 ? Math.max(0, Math.min(100, ((income - spent) / income) * 100)) : null;
     out.push({ mk, rate, income, spent });
