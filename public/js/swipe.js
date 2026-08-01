@@ -2,7 +2,7 @@
 // Scorri la riga a sinistra per rivelare Clona / Elimina. Tap = modifica.
 const ACTIONS_W = 132; // larghezza area azioni (px)
 
-export function attachSwipe(container, { onEdit, onDelete, onClone }) {
+export function attachSwipe(container, { onEdit, onDelete, onClone, onQuickAmount }) {
   let openEl = null;
   const close = (el) => { if (!el) return; const f = el.querySelector(".swipe-face"); if (f) f.style.transform = "translateX(0)"; el.classList.remove("open"); if (openEl === el) openEl = null; };
   const open = (el) => { const f = el.querySelector(".swipe-face"); if (!f) return; if (openEl && openEl !== el) close(openEl); f.style.transform = `translateX(-${ACTIONS_W}px)`; el.classList.add("open"); openEl = el; };
@@ -50,6 +50,14 @@ export function attachSwipe(container, { onEdit, onDelete, onClone }) {
       if (act === "delete") onDelete?.(id);
       else if (act === "clone") onClone?.(id);
     }));
+
+    // Tap sull'importo → modifica rapida (se la riga è aperta, prima la chiude)
+    const qa = el.querySelector(".qa");
+    if (qa && onQuickAmount) qa.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (el.classList.contains("open")) { close(el); return; }
+      onQuickAmount(id);
+    });
   });
 
   // Chiudi la riga aperta toccando altrove

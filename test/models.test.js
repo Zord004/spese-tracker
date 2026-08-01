@@ -120,6 +120,22 @@ describe("categoryBreakdown", () => {
   test("esclude le entrate", () => {
     assert.equal(categoryBreakdown([entrata({ amount: 1000 })]).length, 0);
   });
+  test("è mensile: usa la quota delle ricorrenti, non l'importo pieno", () => {
+    const b = categoryBreakdown([spesa({ cat: "Auto/Moto", amount: 1200, date: dateInMonth(-2, 10), recur: "Annuale", nature: "fisso" })]);
+    assert.equal(b[0].total, 100); // 1200/12, non 1200
+  });
+  test("è mensile: esclude le una tantum di mesi passati", () => {
+    const b = categoryBreakdown([spesa({ cat: "Cibo", amount: 80, date: dateInMonth(-1, 10), recur: "Nessuna" })]);
+    assert.equal(b.length, 0); // spesa del mese scorso non entra in quello corrente
+  });
+  test("il totale della ripartizione coincide con monthTotal del mese", () => {
+    const data = [
+      spesa({ cat: "Casa", amount: 700, date: dateInMonth(-3, 1), recur: "Mensile", nature: "fisso" }),
+      spesa({ cat: "Cibo", amount: 50, date: dateInMonth(0, 10) }),
+    ];
+    const sum = categoryBreakdown(data).reduce((s, c) => s + c.total, 0);
+    assert.equal(sum, monthTotal(data, currentMonthKey()));
+  });
 });
 
 describe("fixedVsVariable e savingsRate", () => {

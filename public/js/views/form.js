@@ -75,6 +75,8 @@ export function showExpenseForm(overlay, expense, onSubmit) {
       if (!newList.find(c => c.id === selCat)) selCat = newList[0].id;
       renderChips();
       overlay.querySelector("#expense-only")?.classList.toggle("hidden", v === "entrata");
+      const lbl = overlay.querySelector("#f-name-label");
+      if (lbl) lbl.textContent = v === "entrata" ? "Descrizione (facoltativa)" : "Descrizione";
       preview();
     });
     const catList = selType === "entrata" ? incomeCategories() : expenseCategories();
@@ -121,7 +123,7 @@ export function showExpenseForm(overlay, expense, onSubmit) {
         </div>
 
         <div class="field">
-          <label class="field-label">Descrizione</label>
+          <label class="field-label" id="f-name-label">Descrizione</label>
           <input class="input" id="f-name" placeholder="es. Spesa Esselunga, Stipendio…" value="${escapeHtml(expense?.name || "")}" autocomplete="off">
         </div>
 
@@ -299,14 +301,14 @@ export function showExpenseForm(overlay, expense, onSubmit) {
     const date = overlay.querySelector("#f-date").value;
     const note = overlay.querySelector("#f-note").value.trim();
     const location = overlay.querySelector("#f-location")?.value.trim() || "";
-    if (!name || !amount || amount <= 0) { overlay.querySelector("#f-amount").focus(); return; }
+    if ((selType !== "entrata" && !name) || !amount || amount <= 0) { overlay.querySelector(!amount ? "#f-amount" : "#f-name").focus(); return; }
 
     const amFinal = selType === "entrata" ? 1 : (customAmOpen ? Math.max(1, parseInt(overlay.querySelector("#f-am-custom").value) || 1) : selAm);
     let recurFinal = selRecur;
     if (customRecurOpen) { const n = Math.max(1, parseInt(overlay.querySelector("#f-recur-custom").value) || 1); recurFinal = `Ogni ${n} mesi`; }
 
     onSubmit({
-      type: selType, name, amount, date, cat: selCat,
+      type: selType, name: name || (selType === "entrata" ? selCat : name), amount, date, cat: selCat,
       am: amFinal, recur: recurFinal,
       nature: selType === "entrata" ? "variabile" : selNature,
       note, location,

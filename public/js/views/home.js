@@ -2,7 +2,7 @@ import { totalAmortizedThisMonth, totalSpent, categoryBreakdown, getCategoryById
 import { escapeHtml, formatCurrency, formatDate, currentMonthKey } from "../utils.js";
 import { attachSwipe, swipeWrap } from "../swipe.js";
 
-export function renderHome(container, expenses, { onEditExpense, onDelete, onClone, budget, varBudget, catBudgets, income, onNavigate }) {
+export function renderHome(container, expenses, { onEditExpense, onDelete, onClone, onQuickAmount, budget, varBudget, catBudgets, income, onNavigate }) {
   const amort = totalAmortizedThisMonth(expenses);
   const recur = totalRecurringMonthly(expenses);
   const monthCost = monthTotal(expenses, currentMonthKey());
@@ -157,7 +157,7 @@ export function renderHome(container, expenses, { onEditExpense, onDelete, onClo
 
   container.querySelectorAll("[data-nav]").forEach(el => el.addEventListener("click", () => onNavigate(el.dataset.nav)));
   const swipes = container.querySelector(".row-swipes");
-  if (swipes) attachSwipe(swipes, { onEdit: onEditExpense, onDelete, onClone });
+  if (swipes) attachSwipe(swipes, { onEdit: onEditExpense, onDelete, onClone, onQuickAmount });
 }
 
 export function rowInner(e) {
@@ -179,7 +179,7 @@ export function rowInner(e) {
       <div class="tx-meta">${formatDate(e.date)} · ${escapeHtml(e.cat)}${e.location ? ` · ${escapeHtml(e.location)}` : ""}</div>
     </div>
     <div class="tx-amt">
-      <div class="a ${inc ? "credit" : ""} tnum">${inc ? "+ " : ""}${formatCurrency(e.amount)}</div>
+      <div class="a qa ${inc ? "credit" : ""} tnum" data-qa title="Tocca per modificare l'importo">${inc ? "+ " : ""}${formatCurrency(e.amount)}</div>
       ${sub ? `<div class="s tnum">${sub}</div>` : ""}
     </div>
   </div>`;

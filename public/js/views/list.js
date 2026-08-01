@@ -51,5 +51,5 @@ export function renderList(container, expenses, filterCat, searchQuery, callback
   let db;
   inp?.addEventListener("input", () => { clearTimeout(db); db = setTimeout(() => callbacks.onSearchChange(inp.value), 200); });
   container.querySelectorAll("[data-filter]").forEach(b => b.addEventListener("click", () => callbacks.onFilterChange(b.dataset.filter)));
-  container.querySelectorAll(".row-swipes").forEach(el => attachSwipe(el, { onEdit: callbacks.onEditExpense, onDelete: callbacks.onDelete, onClone: callbacks.onClone }));
+  container.querySelectorAll(".row-swipes").forEach(el => attachSwipe(el, { onEdit: callbacks.onEditExpense, onDelete: callbacks.onDelete, onClone: callbacks.onClone, onQuickAmount: callbacks.onQuickAmount }));
 }

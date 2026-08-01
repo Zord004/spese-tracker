@@ -87,14 +87,18 @@ export function getCategoryById(id, type = "spesa") {
 }
 
 /** Ripartizione per categoria, derivata dai dati. @param {Expense[]} expenses @returns {CategorySlice[]} */
-export function categoryBreakdown(expenses) {
-  // Deriva le categorie dai dati stessi: supporta anche categorie nuove
-  // aggiunte su Notion senza doverle elencare nel codice.
+export function categoryBreakdown(expenses, mk = currentMonthKey()) {
+  // Ripartizione per categoria del mese indicato (default: mese corrente),
+  // con la stessa regola di "Spesa del mese": quota delle ricorrenti, quota
+  // degli ammortamenti e spese una tantum del mese. Le categorie sono derivate
+  // dai dati, così supporta anche quelle nuove aggiunte su Notion.
   const map = {};
   expenses.filter(isExpense).forEach(e => {
+    const charge = monthlyChargeFor(e, mk);
+    if (charge <= 0) return;
     const id = e.cat || "Altro";
     if (!map[id]) { const c = getCat(id, "spesa"); map[id] = { id, color: c.color, icon: c.icon, total: 0, count: 0 }; }
-    map[id].total += e.amount; map[id].count++;
+    map[id].total += charge; map[id].count++;
   });
   return Object.values(map).filter(c => c.count > 0).sort((a, b) => b.total - a.total);
 }

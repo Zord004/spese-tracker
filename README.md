@@ -3,97 +3,110 @@
 [![CI](https://github.com/Zord004/spese-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Zord004/spese-tracker/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-installabile-1c3d5c)
-![Versione](https://img.shields.io/badge/versione-9.5.1-9a7c3b)
+![Versione](https://img.shields.io/badge/versione-9.7.0-9a7c3b)
 
-Tracker di spese personali con sincronizzazione su Notion.
-Backend Node.js/Express, frontend vanilla JS. PWA installabile e utilizzabile offline.
+Tracker di spese personali che usa **Notion come database**. Interfaccia web
+installabile come app (PWA), utilizzabile offline, con estetica sobria da
+estratto conto. Backend Node.js/Express, frontend in JavaScript senza framework.
 
-## Correzioni v9.5.1
-
-**Spese ricorrenti nel grafico Andamento.** Le ricorrenti (abbonamenti, affitto…)
-venivano conteggiate solo nel mese in cui erano state inserite, non nei mesi
-successivi: il grafico degli ultimi 6 mesi mostrava mesi vuoti e non coincideva
-con la "Spesa del mese" in Home. Ora una regola unica imputa a ogni mese la quota
-corretta — ricorrenti da ogni mese dall'origine in poi, ammortamenti come quota
-mensile, spese una tantum nel loro mese — e la barra del mese corrente nel grafico
-coincide con la Home.
-
-## Novità v9.5 — irrobustimento sicurezza
-
-A seguito di un audit del codice sono state applicate cinque patch:
-
-- **Autenticazione obbligatoria in produzione.** Con `NODE_ENV=production`, se
-  mancano `BASIC_AUTH_USER`/`BASIC_AUTH_PASS` il server **non parte**: l'app non
-  può più finire online senza protezione per una svista. In sviluppo, se l'auth è
-  spenta, un avviso lo segnala all'avvio.
-- **Freno al brute-force.** Rate limiter sui tentativi di autenticazione (per IP);
-  la navigazione normale non viene mai frenata.
-- **Nessuna esposizione del codice server.** Gli asset client vivono ora in
-  `public/` e il server serve solo quella cartella: `server/`, `test/`,
-  `package.json`, `Dockerfile` ecc. non sono più scaricabili.
-- **CSP irrigidita.** Rimossi `'unsafe-eval'` e i domini CDN non più necessari
-  (tutto è self-hosted): `script-src 'self'`.
-- **Messaggi d'errore generici.** Le API non restituiscono più i dettagli interni
-  degli errori al client.
-
-## Novità v9.4
-
-**Suite di test.** 72 test con `node:test` (integrato in Node 20+, nessuna
-dipendenza aggiuntiva) su tutti i calcoli che riguardano i soldi: ammortamenti,
-ricorrenze, report fiscale, proiezione del saldo, tasso di risparmio, budget.
-
-> I test hanno subito ripagato: hanno scovato un bug in `addMonths`. Una spesa
-> datata **31 gennaio** con ammortamento a 4 mesi finiva in
-> `['2026-01', '2026-03', '2026-03', '2026-04']` — febbraio saltato, marzo
-> contato due volte. Colpiva ogni acquisto fatto il 29, 30 o 31 del mese.
-> Corretto, con test di regressione a presidio (anno bisestile incluso).
-
-**Budget per categoria.** In *Altro → Finanze → Budget per categoria* si fissa un
-tetto mensile per ogni categoria. Nella schermata *Conto* compare una sezione con
-le barre che virano da navy a ottone a rosso man mano che ci si avvicina al
-limite, con l'indicazione di quanto resta o di quanto si è sforato. Le spese
-ricorrenti pesano con la loro quota mensile.
-
-**Controllo dei tipi senza TypeScript.** Annotazioni JSDoc più `checkJs`: si
-ottiene il controllo dei tipi nell'editor e in CI senza rinominare i file, senza
-build step e senza toccare il deploy. I tipi condivisi stanno in `js/types.js`.
-
-Il controllo ha ripulito imprecisioni reali: sottrazioni implicite fra oggetti
-`Date`, `parseInt()` applicato a valori già numerici, e soprattutto due endpoint
-che non gestivano i parametri ripetuti nella query string (`?amount=1&amount=9`
-arriva come array, non come stringa).
-
-**Integrazione continua.** Il workflow in `.github/workflows/ci.yml` esegue
-controllo dei tipi e test a ogni push su `main`, su Node 20 e 22.
-
-## Comandi
-
-```bash
-npm install
-cp .env.example .env    # token Notion e ID database
-npm start               # avvia su http://localhost:3000
-
-npm test                # suite di test
-npm run test:watch      # test in watch mode
-npm run typecheck       # controllo dei tipi
-npm run check           # tipi + test (come in CI)
-```
-
-Da iPhone sulla stessa WiFi: `http://IP-DEL-PC:3000`.
-Dopo un aggiornamento, svuota la cache di Safari.
+L'idea: registri spese ed entrate da un'unica app veloce sul telefono o sul PC,
+i dati vivono nel tuo Notion (dove puoi sempre consultarli e correggerli), e
+l'app ci costruisce sopra bilanci, grafici e un report per il commercialista.
 
 ## Funzionalità
 
-- **Sincronizzazione Notion** bidirezionale, con coda offline e ripristino
-  automatico al ritorno della connessione
-- **PWA installabile**: app-shell in cache, font self-hosted, funziona offline
-- **Ammortamenti** su più mesi e **spese ricorrenti** con periodicità libera
-- **Report per il commercialista** (730/Unico) con detraibilità e percentuali
-- **Proiezione del saldo** a fine mese basata su entrate e ricorrenze
-- **Budget** complessivo, sulla spesa variabile e per singola categoria
-- **Multi-valuta** con conversione al tasso del giorno
-- **Tema chiaro/scuro** o automatico secondo il sistema
-- **Swipe** sulle righe per clonare o eliminare
+- **Sincronizzazione con Notion**, bidirezionale, con **coda offline**: registri
+  anche senza rete e l'app sincronizza appena torna online.
+- **PWA installabile**: si aggiunge alla schermata Home e funziona offline
+  (app-shell in cache, font self-hosted).
+- **Spese ricorrenti** (abbonamenti, affitto) con periodicità libera e
+  **ammortamenti** su più mesi (es. un acquisto grande spalmato su 24 mesi).
+- **Budget** complessivo, sulla spesa variabile e **per singola categoria**, con
+  barre che virano da navy a ottone a rosso all'avvicinarsi del limite.
+- **Proiezione del saldo** a fine mese, basata su entrate e spese ricorrenti.
+- **Analisi**: ripartizione per categoria (con filtro per mese), andamento a 6
+  mesi, tasso di risparmio, con tooltip informativi al tocco su ogni grafico.
+- **Report per il commercialista** (730/Unico) con detraibilità e percentuali.
+- **Multi-valuta**: registri in valuta estera, l'app converte in euro al tasso
+  del giorno.
+- **Tema** chiaro, scuro o automatico secondo il sistema.
+- **Modifica rapida**: un tap sull'importo di una riga lo corregge al volo.
+- **Swipe** sulle righe per clonare o eliminare al volo.
+
+## Anteprima
+
+| Conto | Analisi | Tema scuro |
+|-------|---------|-----------|
+| ![Conto](docs/screenshots/conto.png) | ![Analisi](docs/screenshots/analisi.png) | ![Tema scuro](docs/screenshots/scuro.png) |
+
+## Avvio rapido
+
+```bash
+npm install
+cp .env.example .env      # inserisci token Notion e ID del database
+npm start                 # http://localhost:3000
+```
+
+Da telefono sulla stessa WiFi: `http://IP-DEL-PC:3000`.
+
+## Il database Notion
+
+L'app legge e scrive su un database Notion. Servono un'**integrazione** (per il
+token) e un database con le colonne attese.
+
+### 1. Crea l'integrazione e condividi il database
+
+1. Crea un'integrazione su <https://www.notion.so/my-integrations> e copia il
+   token (`ntn_...`) in `.env` come `NOTION_TOKEN`.
+2. Nel database Notion: menù `•••` → *Connections* → aggiungi l'integrazione.
+3. Copia l'ID del database dall'URL (la parte prima di `?v=`) in
+   `NOTION_DATABASE_ID`.
+
+### 2. Le colonne del database
+
+Queste sono le proprietà che l'app usa. Il server è tollerante: se una colonna
+**opzionale** manca, la ignora senza errori. Le colonne **base** servono perché
+l'app sia utile.
+
+| Colonna | Tipo Notion | Ruolo |
+|---|---|---|
+| **Nome** | Title | Descrizione del movimento *(base)* |
+| **Importo** | Number | Importo in € *(base)* |
+| **Data** | Date | Data del movimento *(base)* |
+| **Categoria** | Select | Categoria (le opzioni sono libere) *(base)* |
+| **Tipo** | Select | `Spesa` / `Entrata` *(base)* |
+| **Natura** | Select | `Variabile` / `Fisso` |
+| **Ricorrenza** | Select | `Nessuna` / `Giornaliera` / `Mensile` / `Trimestrale` / `Annuale` |
+| **Mesi ammortamento** | Number | 1 = nessun ammortamento |
+| **Note** | Text | Note libere |
+| **Luogo** | Text | Luogo (per la ricerca) |
+| **Detraibile** | Checkbox | Per il report fiscale |
+| **% Detrazione** | Number | Percentuale di detrazione |
+| **Utilizzi** | Number | Per il costo per utilizzo |
+| **Valuta** | Select | *(opzionale)* multi-valuta: EUR, USD, GBP, JPY, CHF, CAD, AUD, SEK, NOK, DKK |
+| **Importo originale** | Number | *(opzionale)* importo nella valuta originale |
+
+> Suggerimento: le opzioni delle categorie le definisci tu su Notion; l'app le
+> legge dallo schema. Dopo averle cambiate, usa *Altro → Dati → "Aggiorna schema
+> da Notion"* invece di riavviare il server.
+
+### 3. Template (opzionale)
+
+Per evitare di ricreare il database a mano puoi partire da un template già
+pronto con le colonne corrette:
+
+<!-- Inserisci qui il link a una tua pagina Notion pubblica condivisibile:
+     "Duplica questo template nel tuo workspace e copia il suo ID". -->
+`(link al template Notion da inserire)`
+
+## Comandi utili
+
+```bash
+npm start            # avvia il server
+npm test             # suite di test
+npm run typecheck    # controllo dei tipi (JSDoc + checkJs)
+npm run check        # tipi + test (come in CI)
+```
 
 ## Con Docker
 
@@ -105,38 +118,28 @@ docker compose up --build
 ## Deploy in cloud
 
 1. Push del repo su GitHub.
-2. Su Render: "New → Blueprint", punta al repo (usa `render.yaml`).
+2. Su Render: *New → Blueprint*, punta al repo (usa `render.yaml`).
 3. Inserisci `NOTION_TOKEN` e `NOTION_DATABASE_ID`.
-4. Consigliato: `BASIC_AUTH_USER` e `BASIC_AUTH_PASS` per proteggere l'app.
+4. Imposta `BASIC_AUTH_USER` e `BASIC_AUTH_PASS` per proteggere l'app: con
+   `NODE_ENV=production` (già nel `render.yaml`) sono **obbligatorie**.
 
-I piani gratuiti mettono l'app in pausa dopo un periodo di inattività: il primo
-caricamento dopo la pausa può richiedere qualche secondo.
+I piani gratuiti mettono l'app in pausa dopo inattività: la prima apertura dopo
+la pausa può richiedere qualche secondo.
 
-## Colonne Notion opzionali (multi-valuta)
+## Sicurezza
 
-L'app funziona senza, ma per vedere su Notion anche la valuta e l'importo
-originale, aggiungi due colonne al database:
-
-- **Valuta** — tipo *Select* (EUR, USD, GBP, JPY, CHF, CAD, AUD, SEK, NOK, DKK)
-- **Importo originale** — tipo *Number*
-
-Finché non esistono, il server le salta senza errori e salva comunque l'importo
-convertito in € nella colonna *Importo*.
-
-## Categorie dinamiche
-
-Aggiungendo categorie su Notion, usa *Altro → Dati → "Aggiorna schema da Notion"*
-invece di riavviare il server.
+L'app è pensata per uso personale, protetta da HTTP Basic Auth su HTTPS.
+In produzione l'autenticazione è obbligatoria, i tentativi di accesso sono
+limitati (anti brute-force), la CSP è restrittiva e il codice del server non è
+servito pubblicamente. Dettagli nel `CHANGELOG.md` (v9.5.0).
 
 ## Cosa non è supportato (e perché)
 
-- **Background Sync API** — non supportata da Safari su iOS in nessuna versione.
-  Sostituita dallo svuotamento della coda all'evento `online`.
-- **Feedback aptico (`navigator.vibrate`)** — non supportato nativamente da
-  Safari su iOS; gli unici workaround sono polyfill fragili.
+- **Multiutente**: l'app è personale (un solo database Notion, una credenziale).
+- **Background Sync API** e **feedback aptico**: non supportati da Safari su iOS.
 
-## Copertura dei test
+## Note tecniche
 
-Coperti: `js/models.js` e `js/utils.js`, cioè tutti i calcoli.
-Non coperti: la validazione lato server e lo `store` (richiedono rispettivamente
-un'istanza Notion e IndexedDB), e il rendering delle viste.
+- Struttura: `public/` (client), `server/` (Express), `test/` (test).
+- Nessun framework frontend; grafici in SVG disegnati a mano.
+- Cronologia completa delle versioni: [CHANGELOG.md](CHANGELOG.md).

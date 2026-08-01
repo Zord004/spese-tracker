@@ -167,15 +167,18 @@ async function withRetry(fn, tries = 4) {
 
 function validate(b) {
   const err = [];
-  if (!b.name || typeof b.name !== "string" || !b.name.trim()) err.push("Nome obbligatorio");
-  const name = esc(String(b.name||"").trim()).slice(0,200);
+  const type = VT.includes(b.type) ? b.type : "spesa";
+  const catList = type === "entrata" ? schema.incomeCats : schema.expenseCats;
+  const cat = catList.includes(b.cat) ? b.cat : "Altro";
+  // La descrizione è obbligatoria solo per le spese. Per un'entrata senza
+  // descrizione si usa la categoria come nome (es. "Stipendio").
+  const hasName = !!(b.name && typeof b.name === "string" && b.name.trim());
+  if (type !== "entrata" && !hasName) err.push("Nome obbligatorio");
+  const name = esc(String((hasName ? b.name : (type === "entrata" ? "Entrata" : "")) || "").trim()).slice(0, 200);
   const amount = parseFloat(b.amount);
   if (isNaN(amount) || amount <= 0 || amount > 999999999) err.push("Importo non valido");
   if (!b.date || !/^\d{4}-\d{2}-\d{2}$/.test(b.date)) err.push("Data non valida");
   const date = String(b.date||"").slice(0,10);
-  const type = VT.includes(b.type) ? b.type : "spesa";
-  const catList = type === "entrata" ? schema.incomeCats : schema.expenseCats;
-  const cat = catList.includes(b.cat) ? b.cat : "Altro";
   const am = Math.max(1, Math.min(360, parseInt(b.am) || 1));
   let recur = "Nessuna";
   if (VR.includes(b.recur)) recur = b.recur;

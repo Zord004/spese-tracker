@@ -6,3 +6,4 @@ npm-debug.log
 *.md
 real-*.png
 shot.cjs
+docs/

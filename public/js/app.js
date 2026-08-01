@@ -96,6 +96,7 @@ class App {
           onEditExpense: id => this.openEditForm(id),
           onDelete: id => this.deleteExpense(id),
           onClone: id => this.openCloneForm(id),
+          onQuickAmount: id => this.quickEditAmount(id),
           budget: store.getBudget(),
           varBudget: store.getVarBudget(),
           catBudgets: store.getCatBudgets(),
@@ -108,6 +109,7 @@ class App {
           onEditExpense: id => this.openEditForm(id),
           onDelete: id => this.deleteExpense(id),
           onClone: id => this.openCloneForm(id),
+          onQuickAmount: id => this.quickEditAmount(id),
           onFilterChange: c => { this.filterCat = c; this.render(); },
           onSearchChange: q => { this.searchQuery = q; this.render(); },
         });
@@ -171,6 +173,22 @@ class App {
     this.toast("Movimento eliminato");
     const { data } = await store.getAll();
     this.expenses = data;
+    this.render();
+  }
+  async quickEditAmount(id) {
+    const exp = this.expenses.find(e => e.id === id);
+    if (!exp) return;
+    const foreign = exp.currency && exp.currency !== "EUR" && exp.originalAmount != null;
+    const current = foreign ? exp.originalAmount : exp.amount;
+    const unit = foreign ? ` (${exp.currency})` : " (€)";
+    const input = prompt(`Nuovo importo${unit} per "${exp.name}"`, String(current));
+    if (input === null) return;
+    const val = parseFloat(String(input).replace(",", "."));
+    if (isNaN(val) || val <= 0) { this.toast("Importo non valido"); return; }
+    await store.update(id, { ...exp, amount: val, currency: exp.currency || "EUR" });
+    const { data } = await store.getAll();
+    this.expenses = data;
+    this.toast("Importo aggiornato");
     this.render();
   }
   openCloneForm(id) {
