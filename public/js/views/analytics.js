@@ -1,7 +1,11 @@
 import { categoryBreakdown, monthlySpendingTrend, monthComparison, averageMonthlySpending, topExpenses, getCategoryById, fixedVsVariable, taxReport, totalIncomeThisMonth, savingsRate, savingsRateTrend, amortizationTimeline, activeAmortizations, recurringExpenses, recurringMonthlyCost, costPerUse, isExpense, locationBreakdown, monthTotal } from "../models.js";
-import { escapeHtml, formatCurrency, currentMonthKey, monthShort, monthLabel, currentYear } from "../utils.js";
+import { escapeHtml, formatCurrency, currentMonthKey, monthShort, monthLabel, currentYear, infoBtn } from "../utils.js";
+import { renderForecast, renderSimulator } from "./forecast.js";
+import { groupBlocks } from "../layout.js";
 
 let _tab = "overview";
+/** Apre una scheda dell'Analisi al prossimo rendering (usato dai link della Home). @param {string} t */
+export function setAnalyticsTab(t) { _tab = t; }
 let _periodMk = null; // mese selezionato nella Panoramica (default: mese corrente)
 function shiftMonth(mk, delta) { const [y, m] = mk.split("-").map(Number); const d = new Date(y, m - 1 + delta, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; }
 
@@ -9,8 +13,6 @@ function shiftMonth(mk, delta) { const [y, m] = mk.split("-").map(Number); const
 // dettagli. Vive fuori dal contenuto (che viene ri-renderizzato), così il
 // listener si registra una sola volta.
 let _tipEl;
-/** Piccola icona informativa: al tocco mostra la spiegazione (riusa il chart-tip). */
-function infoBtn(tip) { return `<button class="info-i" data-tip="${tip.replace(/"/g, "&quot;")}" aria-label="Informazioni">i</button>`; }
 function ensureChartTip() {
   if (_tipEl) return;
   _tipEl = document.createElement("div");
@@ -41,6 +43,8 @@ export function renderAnalytics(container, expenses, callbacks) {
   container.innerHTML = `
     <div class="subtabs">
       <button class="subtab ${_tab === "overview" ? "on" : ""}" data-tab="overview">Panoramica</button>
+      <button class="subtab ${_tab === "forecast" ? "on" : ""}" data-tab="forecast">Previsione</button>
+      <button class="subtab ${_tab === "sim" ? "on" : ""}" data-tab="sim">Simulatore</button>
       <button class="subtab ${_tab === "trend" ? "on" : ""}" data-tab="trend">Andamento</button>
       <button class="subtab ${_tab === "amort" ? "on" : ""}" data-tab="amort">Ammortam.</button>
       <button class="subtab ${_tab === "tax" ? "on" : ""}" data-tab="tax">Fiscale</button>
@@ -49,8 +53,12 @@ export function renderAnalytics(container, expenses, callbacks) {
   `;
   container.querySelectorAll(".subtab").forEach(t => t.addEventListener("click", () => { _tab = t.dataset.tab; renderAnalytics(container, expenses, callbacks); }));
   const content = container.querySelector("#tab-content");
-  if (_tab === "overview") renderOverview(content, expenses, callbacks);
-  else if (_tab === "trend") renderTrend(content, expenses, callbacks);
+  content.classList.toggle("cols", ["overview", "trend", "forecast"].includes(_tab));
+  const goTab = t => { _tab = t; renderAnalytics(container, expenses, callbacks); };
+  if (_tab === "overview") { renderOverview(content, expenses, callbacks); groupBlocks(content); }
+  else if (_tab === "forecast") renderForecast(content, expenses, { ...callbacks, goTab });
+  else if (_tab === "sim") renderSimulator(content, expenses, callbacks);
+  else if (_tab === "trend") { renderTrend(content, expenses, callbacks); groupBlocks(content); }
   else if (_tab === "amort") renderAmort(content, expenses);
   else if (_tab === "tax") renderTax(content, expenses, callbacks);
 }
@@ -132,7 +140,7 @@ function renderOverview(el, expenses, callbacks) {
   el.querySelectorAll("[data-period]").forEach(b => b.addEventListener("click", () => {
     if (b.hasAttribute("disabled")) return;
     _periodMk = shiftMonth(_periodMk, b.dataset.period === "prev" ? -1 : 1);
-    renderOverview(el, expenses, callbacks);
+    renderOverview(el, expenses, callbacks); groupBlocks(el);
   }));
 }
 

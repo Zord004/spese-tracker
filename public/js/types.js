@@ -67,4 +67,34 @@
 
 /** Mappa categoria → tetto mensile. @typedef {Record<string, number>} CatBudgets */
 
+/**
+ * Previsione di fine mese (vedi forecastMonth).
+ * @typedef {Object} Forecast
+ * @property {string} mk @property {number} daysInMonth @property {number} dayOfMonth @property {number} daysLeft
+ * @property {number} floor            Parte certa: una tantum registrate + ricorrenti + quote
+ * @property {number} committed        Ricorrenti + quote di ammortamento
+ * @property {number} spentOneOff      Una tantum del mese già registrate
+ * @property {number} dailyRate @property {number} dailyRateCurrent @property {number|null} dailyRateHistory
+ * @property {number} expectedRemaining Spesa discrezionale attesa nei giorni rimanenti
+ * @property {number} projectedSpend @property {number} low @property {number} high
+ * @property {"alta"|"media"|"bassa"} confidence
+ * @property {{mk:string, days:number, oneOff:number}[]} history
+ * @property {number} incomeExpected @property {boolean} hasIncome @property {number} projectedBalance
+ * @property {number} variableNow @property {number} projectedVariable
+ */
+
+/**
+ * Esito del simulatore what-if (vedi simulateExpense).
+ * @typedef {Object} Simulation
+ * @property {number} amount @property {number} installments @property {number} charge
+ * @property {{mk:string, charge:number}[]} schedule
+ * @property {Forecast} before
+ * @property {{projectedSpend:number, low:number, high:number, projectedBalance:number, projectedVariable:number}} after
+ * @property {{before:number|null, after:number|null}} rate
+ * @property {{limit:number, residualBefore:number, residualAfter:number, projectedResidualBefore:number, projectedResidualAfter:number}|null} variable
+ * @property {{id:string, limit:number, spentBefore:number, spentAfter:number, residualBefore:number, residualAfter:number}|null} category
+ * @property {boolean} hasIncome @property {number|null} avgSaving @property {number|null} monthsToRecover
+ * @property {"ok"|"warn"|"over"} level @property {string[]} reasons
+ */
+
 export {};

@@ -2,6 +2,33 @@
 
 Tutte le modifiche di rilievo, dalla più recente.
 
+## 9.8.0
+
+- **Correzione importante: gli aggiornamenti ora arrivano davvero.** Il service
+  worker serviva i file dalla cache prima della rete, con un nome di cache mai
+  cambiato dalla v9.4: i dispositivi che avevano già installato l'app continuavano
+  a mostrare il codice vecchio dopo ogni deploy. Ora codice e stili vengono
+  scaricati prima dalla rete (la cache serve solo offline) e la versione dell'app
+  è scritta automaticamente nel service worker, che quindi cambia a ogni release e
+  scarta la cache precedente. Dopo questo aggiornamento può servire aprire l'app
+  due volte per passare alla versione nuova; poi non servirà più.
+- **Previsione di fine mese.** Stima della spesa totale: parte certa + spesa
+  attesa dal ritmo storico (mediana robusta agli acquisti eccezionali), con fascia
+  di incertezza e affidabilità. Card in *Conto* e scheda *Analisi → Previsione*
+  (composizione, ritmo, storico, saldo previsto).
+- **Simulatore what-if** (*Analisi → Simulatore*). Impatto in tempo reale di una
+  spesa ipotetica, una tantum o a rate, su spesa prevista, saldo, tasso di
+  risparmio, budget variabile e budget di categoria, con verdetto e stima dei
+  mesi di risparmio necessari per recuperarla.
+- **Layout desktop.** Da 1024 px: barra laterale, schede su 2–3 colonne, form e
+  report come finestre centrate, azioni di riga al passaggio del mouse. Layout
+  intermedio per tablet.
+- **Mobile più comodo.** Aree di tocco più ampie (icone ⓘ, frecce del periodo,
+  chip), campi a 16 px per evitare lo zoom automatico su iOS, esito del simulatore
+  visibile sotto il campo importo anche con la tastiera aperta.
+- 31 nuovi test (89 → 120): 26 su previsione e simulatore, 5 sul service worker
+  (verificano anche che ogni modulo dell'app sia nel precache).
+
 ## 9.7.1 — Correzioni da audit
 
 - **Ricorrenza personalizzata ora salvata correttamente.** "Ogni N mesi" veniva

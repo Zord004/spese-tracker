@@ -3,7 +3,7 @@
 [![CI](https://github.com/Zord004/spese-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Zord004/spese-tracker/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-installabile-1c3d5c)
-![Versione](https://img.shields.io/badge/versione-9.7.1-9a7c3b)
+![Versione](https://img.shields.io/badge/versione-9.8.0-9a7c3b)
 
 Tracker di spese personali che usa **Notion come database**. Interfaccia web
 installabile come app (PWA), utilizzabile offline, con estetica sobria da
@@ -18,12 +18,21 @@ l'app ci costruisce sopra bilanci, grafici e un report per il commercialista.
 - **Sincronizzazione con Notion**, bidirezionale, con **coda offline**: registri
   anche senza rete e l'app sincronizza appena torna online.
 - **PWA installabile**: si aggiunge alla schermata Home e funziona offline
-  (app-shell in cache, font self-hosted).
+  (app-shell in cache, font self-hosted). Online l'app si aggiorna da sola:
+  codice e stili vengono sempre scaricati prima, la cache serve solo senza rete.
 - **Spese ricorrenti** (abbonamenti, affitto) con periodicità libera e
   **ammortamenti** su più mesi (es. un acquisto grande spalmato su 24 mesi).
 - **Budget** complessivo, sulla spesa variabile e **per singola categoria**, con
   barre che virano da navy a ottone a rosso all'avvicinarsi del limite.
-- **Proiezione del saldo** a fine mese, basata su entrate e spese ricorrenti.
+- **Previsione di fine mese**: stima quanto spenderai entro il 30/31, sommando la
+  parte certa (spese registrate, ricorrenti, rate) a quella attesa dalle tue
+  abitudini passate, con fascia di incertezza e indice di affidabilità.
+- **Simulatore "what-if"**: inserisci una spesa ipotetica (anche a rate) e vedi
+  subito l'impatto su previsione, saldo, risparmio e budget, con un verdetto
+  *sostenibile / attenzione / fuori limite*. Non salva nulla.
+- **Layout adattivo**: su telefono una colonna verticale con barra in basso e
+  controlli da toccare; su desktop barra laterale, schede su più colonne, moduli
+  come finestre centrate e azioni sulle righe al passaggio del mouse.
 - **Analisi**: ripartizione per categoria (con filtro per mese), andamento a 6
   mesi, tasso di risparmio, con tooltip informativi al tocco su ogni grafico.
 - **Report per il commercialista** (730/Unico) con detraibilità e percentuali.
@@ -32,6 +41,16 @@ l'app ci costruisce sopra bilanci, grafici e un report per il commercialista.
 - **Tema** chiaro, scuro o automatico secondo il sistema.
 - **Modifica rapida**: un tap sull'importo di una riga lo corregge al volo.
 - **Swipe** sulle righe per clonare o eliminare al volo.
+
+### Come funziona la previsione (e i suoi limiti)
+
+Spesa prevista = **parte certa** (una tantum già registrate + ricorrenti + quote di
+ammortamento) + **parte attesa** (ritmo giornaliero × giorni rimanenti). Il ritmo
+mescola il passo del mese in corso con la mediana dello storico; all'inizio del
+mese pesa lo storico, a fine mese pesa il mese in corso. È una **stima statistica,
+non una garanzia**: un acquisto imprevisto la supera, e con meno di 3 mesi di
+storico l'affidabilità è segnalata come media o bassa. Il simulatore usa le stesse
+regole mensili del resto dell'app, quindi i numeri sono coerenti tra le schermate.
 
 ## Anteprima
 

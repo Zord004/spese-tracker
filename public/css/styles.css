@@ -445,3 +445,148 @@ input[type="date"] { color-scheme:light; }
 @keyframes viewIn { from{opacity:0} to{opacity:1} }
 
 @media (min-width:460px){ :root{ --app-max:460px; } }
+
+/* ═══════════════ Previsione di fine mese ═══════════════ */
+.muted { color:var(--ink-3); }
+.proj-range { font-size:12px; color:var(--ink-3); margin-top:3px; }
+.fc-bar { display:flex; height:10px; border-radius:6px; overflow:hidden; background:var(--surface-2); margin-top:16px; }
+.fc-bar .seg { display:block; height:100%; }
+.seg-committed { background:#6c8bab; }
+.seg-spent { background:var(--navy); }
+.seg-exp { background:repeating-linear-gradient(45deg,var(--brass),var(--brass) 4px,#b89a55 4px,#b89a55 8px); }
+.seg-band { background:rgba(154,124,59,.22); }
+.fc-legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:9px; font-size:11px; color:var(--ink-3); }
+.fc-legend .sw { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+.fc-conf { margin-top:10px; font-size:11.5px; color:var(--ink-3); }
+.fc-conf b { color:var(--ink-2); }
+.kv { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:13px 16px; border-bottom:1px solid var(--line); font-size:13.5px; color:var(--ink-2); }
+.kv:last-child { border-bottom:0; }
+.kv b { color:var(--ink); font-weight:600; text-align:right; }
+.kv.total { background:var(--surface-2); }
+.fc-hist { display:flex; align-items:stretch; gap:8px; height:150px; padding:16px 16px 10px; }
+.fc-col { flex:1; display:flex; flex-direction:column; min-width:0; cursor:pointer; }
+.fc-colwrap { flex:1; min-height:0; display:flex; align-items:flex-end; justify-content:center; }
+.fc-colbar { width:100%; max-width:40px; min-height:2px; background:var(--navy); border-radius:4px 4px 0 0; opacity:.85; }
+.fc-colbar.now { background:repeating-linear-gradient(45deg,var(--brass),var(--brass) 4px,#b89a55 4px,#b89a55 8px); opacity:1; }
+.fc-collbl { text-align:center; font-size:10.5px; color:var(--ink-3); margin-top:6px; }
+.btn-wide { width:100%; min-height:48px; border-radius:10px; border:1px solid var(--navy); background:var(--navy); color:#fff; font:inherit; font-size:14px; font-weight:600; cursor:pointer; }
+.btn-wide:active { opacity:.85; }
+
+/* ═══════════════ Simulatore what-if ═══════════════ */
+.sim-field { display:block; margin-bottom:16px; }
+.sim-field:last-child { margin-bottom:0; }
+.sim-field > span { display:block; font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3); margin-bottom:7px; }
+.sim-field input, .sim-field select { width:100%; height:52px; padding:0 14px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--ink); font:inherit; font-size:18px; }
+.sim-field select { font-size:16px; }
+.sim-field input:focus, .sim-field select:focus { outline:2px solid var(--brass); outline-offset:1px; }
+.sim-chips { display:flex; flex-wrap:wrap; gap:8px; }
+.sim-chip { min-height:44px; padding:0 15px; border-radius:22px; border:1px solid var(--line); background:var(--surface); color:var(--ink-2); font:inherit; font-size:13.5px; font-weight:500; cursor:pointer; }
+.sim-chip.on { background:var(--navy); border-color:var(--navy); color:#fff; }
+.sim-verdict { padding:16px 18px; border-left:4px solid var(--credit); margin-top:12px; }
+.sim-verdict.warn { border-left-color:var(--brass); }
+.sim-verdict.over { border-left-color:var(--debit); }
+.sim-v-title { font-family:var(--font-display); font-weight:700; font-size:20px; color:var(--credit); }
+.sim-verdict.warn .sim-v-title { color:var(--brass); }
+.sim-verdict.over .sim-v-title { color:var(--debit); }
+.sim-v-sub { font-size:13px; color:var(--ink-2); margin-top:4px; }
+.sim-v-cost { font-size:12.5px; color:var(--ink); margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
+.sim-row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:13px 16px; border-bottom:1px solid var(--line); font-size:13.5px; }
+.sim-row:last-child { border-bottom:0; }
+.sim-lbl { color:var(--ink-2); }
+.sim-vals { white-space:nowrap; }
+.sim-vals .was { color:var(--ink-3); }
+.sim-vals .arr { margin:0 7px; color:var(--ink-3); }
+.sim-vals .now { color:var(--ink); font-weight:600; }
+.sim-vals .now.neg { color:var(--debit); }
+.sim-hint { margin:12px 4px 0; padding:0 var(--pad); font-size:12.5px; color:var(--ink-2); line-height:1.5; }
+.sim-hint.muted { color:var(--ink-3); font-size:11.5px; }
+
+/* area di tocco dell'icona ⓘ più ampia dell'icona stessa */
+.info-i { position:relative; }
+.info-i::after { content:""; position:absolute; inset:-14px; }
+
+/* ═══════════════ Touch: bersagli grandi, niente zoom automatico su iOS ═══════════════ */
+@media (pointer:coarse) {
+  input, select, textarea { font-size:16px; }
+  .pnav { width:40px; height:40px; }
+  .fchip { min-height:40px; }
+  .subtab { padding:13px 16px; }
+}
+
+/* ═══════════════ Layout adattivo ═══════════════ */
+/* Tablet: stessa interfaccia mobile, ma su una colonna più larga */
+@media (min-width:720px) { :root { --app-max:720px; } }
+
+/* Desktop: navigazione laterale, contenuto su più colonne, finestre centrate */
+@media (min-width:1024px) {
+  :root { --app-max:none; --nav-w:236px; }
+  body { max-width:none; margin:0; padding:0 0 0 var(--nav-w); }
+
+  .app-header { padding:12px 40px; }
+  .app-header .header-row { display:none; }
+  .sync-bar { margin-top:0; }
+
+  main { max-width:1320px; margin:0 auto; padding:8px 40px 72px; }
+  main .card { margin-left:0; margin-right:0; }
+  main .pad { padding-left:0; padding-right:0; }
+  .subtabs { padding-left:0; padding-right:0; }
+  .statement { margin:24px 0 4px; column-span:all; }
+
+  /* Sidebar al posto della barra in basso */
+  .nav { top:0; bottom:0; left:0; right:auto; width:var(--nav-w); max-width:none; margin:0;
+    flex-direction:column; justify-content:flex-start; gap:4px; padding:84px 14px 24px;
+    border-top:0; border-right:1px solid var(--line); }
+  .nav::before { content:"Spese"; position:absolute; top:26px; left:26px; font-family:var(--font-display);
+    font-weight:700; font-size:21px; letter-spacing:.02em; color:var(--ink); }
+  .nav-btn { flex:none; flex-direction:row; justify-content:flex-start; gap:13px; font-size:14px; padding:12px 14px; border-radius:10px; }
+  .nav-btn svg { width:20px; height:20px; }
+  .nav-btn:hover { background:var(--surface-2); }
+  .nav-btn.on { background:var(--surface-2); }
+  .nav-btn.on::before { top:10px; bottom:10px; left:0; width:3px; height:auto; }
+
+  /* Più colonne senza spezzare i blocchi */
+  #v-home, #tab-content.cols { column-count:2; column-gap:32px; }
+  .blk { break-inside:avoid; -webkit-column-break-inside:avoid; margin-bottom:8px; }
+
+  #v-list, #v-settings { max-width:920px; margin:0 auto; }
+
+  /* Simulatore: modulo a sinistra, risultati a destra */
+  .sim-layout { display:grid; grid-template-columns:minmax(320px,400px) 1fr; gap:32px; align-items:start; }
+  .sim-layout .card { margin-left:0; margin-right:0; }
+  .sim-layout .pad { padding-left:0; padding-right:0; }
+  .sim-out > .card:first-child { margin-top:0; }
+  .sim-hint { padding:0; }
+
+  .fab { right:40px; bottom:40px; }
+
+  /* Form e report come finestre centrate */
+  .overlay { align-items:center; }
+  .sheet { max-width:620px; max-height:90vh; border-radius:18px; border:1px solid var(--line); padding-top:6px; }
+
+  /* Col mouse lo swipe non si scopre: le azioni compaiono al passaggio */
+  .swipe:hover .swipe-face { transform:translateX(-132px) !important; }
+}
+@media (min-width:1500px) {
+  #v-home, #tab-content.cols { column-count:3; }
+}
+
+/* ═══════════════ Rifiniture (simulatore + card previsione su telefono) ═══════════════ */
+.sim-verdict { margin-top:0; }
+.sim-n-wrap { display:flex; align-items:center; gap:8px; margin-left:4px; }
+.sim-n-wrap span { font-size:12px; color:var(--ink-3); white-space:nowrap; }
+.sim-n-wrap input { width:78px; height:44px; padding:0 8px; font-size:16px; text-align:center; }
+.sim-live { display:flex; align-items:center; gap:8px; margin:-6px 0 16px; font-size:13px; color:var(--ink-2); min-height:18px; }
+.sim-live b { color:var(--ink); }
+.sim-live .dot { width:9px; height:9px; border-radius:50%; background:var(--credit); flex-shrink:0; }
+.sim-live .dot.warn { background:var(--brass); }
+.sim-live .dot.over { background:var(--debit); }
+@media (max-width:480px) {
+  .proj { flex-direction:column; align-items:flex-start; gap:10px; }
+  .proj-side { text-align:left; display:flex; flex-wrap:wrap; gap:2px 16px; line-height:1.6; }
+}
+@media (min-width:1024px) { .sim-live { display:none; } }
+
+/* Tema scuro: il blu navy sullo sfondo scuro si perde, nelle barre della previsione si usa un azzurro più chiaro */
+[data-theme="dark"] .seg-spent, [data-theme="dark"] .fc-colbar:not(.now) { background:#5b8bbd; }
+[data-theme="dark"] .seg-committed { background:#8aa9c8; }
+[data-theme="dark"] .sim-chip.on { background:#2f5a85; border-color:#2f5a85; }

@@ -45,3 +45,6 @@ export function formatDate(d) {
 }
 /** @param {string} d @returns {string} */
 export function formatDateLong(d) { return new Date(d).toLocaleDateString("it-IT"); }
+
+/** Piccola icona informativa: al tocco mostra la spiegazione (usa il tooltip condiviso dei grafici). @param {string} tip */
+export function infoBtn(tip) { return `<button class="info-i" data-tip="${escapeHtml(tip)}" aria-label="Informazioni">i</button>`; }

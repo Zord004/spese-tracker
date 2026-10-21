@@ -117,6 +117,8 @@ class App {
       case "analytics":
         renderAnalytics(this.el.analytics, this.expenses, {
           getIncome: () => store.getIncome(),
+          getVarBudget: () => store.getVarBudget(),
+          getCatBudgets: () => store.getCatBudgets(),
           onOpenTaxReport: () => showTaxReport(this.taxOverlay, this.expenses),
         });
         break;

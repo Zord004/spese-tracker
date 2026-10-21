@@ -7,7 +7,7 @@ import {
   costPerUse, taxReport, amortizationTimeline, activeAmortizations,
   monthlySpendingTrend, monthComparison, averageMonthlySpending, topExpenses,
   locationBreakdown, variableSpentThisMonth, balanceProjection, savingsRateTrend, categoryBudgetStatus,
-  monthlyChargeFor, monthTotal, monthlyIncomeChargeFor,
+  monthlyChargeFor, monthTotal, monthlyIncomeChargeFor, forecastMonth, simulateExpense,
 } from "../public/js/models.js";
 import { currentMonthKey, currentYear } from "../public/js/utils.js";
 
@@ -495,5 +495,144 @@ describe("robustezza con dati vuoti o incompleti", () => {
   test("un movimento senza categoria finisce in Altro", () => {
     const b = categoryBreakdown([spesa({ cat: undefined, amount: 10 })]);
     assert.equal(b[0].id, "Altro");
+  });
+});
+
+
+// ── Previsione di fine mese ──
+describe("forecastMonth", () => {
+  const nowAt = (day) => { const n = new Date(); const dim = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate(); return new Date(n.getFullYear(), n.getMonth(), day === "last" ? dim : day); };
+  const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
+
+  test("senza dati: tutto a zero, nessun NaN, affidabilità bassa", () => {
+    const f = forecastMonth([], { now: nowAt(1) });
+    assert.equal(f.projectedSpend, 0);
+    assert.equal(f.low, 0); assert.equal(f.high, 0);
+    assert.equal(f.confidence, "bassa");
+    assert.ok(Object.values(f).every(v => typeof v !== "number" || !Number.isNaN(v)));
+  });
+  test("calcola correttamente giorni del mese e giorni rimanenti (anno bisestile)", () => {
+    const f = forecastMonth([], { now: new Date(2028, 1, 10) });
+    assert.equal(f.daysInMonth, 29); assert.equal(f.dayOfMonth, 10); assert.equal(f.daysLeft, 19);
+  });
+  test("solo ricorrenti: la previsione è la quota mensile, nessuna spesa stimata in più", () => {
+    const f = forecastMonth([spesa({ amount: 800, date: dateInMonth(-4, 1), recur: "Mensile", nature: "fisso" })], { now: nowAt(10) });
+    assert.equal(f.projectedSpend, 800); assert.equal(f.expectedRemaining, 0); assert.equal(f.committed, 800);
+  });
+  test("senza storico usa il passo del mese corrente", () => {
+    const f = forecastMonth([spesa({ amount: 100, date: dateInMonth(0, 5) })], { now: nowAt(10) });
+    near(f.dailyRate, 10);                                   // 100€ in 10 giorni
+    near(f.expectedRemaining, 10 * f.daysLeft);
+    near(f.projectedSpend, 100 + 10 * f.daysLeft);
+  });
+  test("a fine mese non resta nulla da stimare", () => {
+    const f = forecastMonth([spesa({ amount: 100, date: dateInMonth(0, 5) })], { now: nowAt("last") });
+    assert.equal(f.daysLeft, 0); assert.equal(f.expectedRemaining, 0); assert.equal(f.projectedSpend, f.floor);
+  });
+  test("all'inizio del mese pesa lo storico, non il solo primo giorno", () => {
+    const hist = [-1, -2, -3].map(m => spesa({ amount: 300, date: dateInMonth(m, 10) }));
+    const f = forecastMonth(hist, { now: nowAt(1) });        // nessuna spesa ancora questo mese
+    assert.ok(f.dailyRateHistory > 0);
+    near(f.dailyRate, (1 - 1 / f.daysInMonth) * f.dailyRateHistory);
+    assert.ok(f.expectedRemaining > 0, "non stima zero solo perché il mese è appena iniziato");
+  });
+  test("la mediana storica non si fa gonfiare da un mese eccezionale", () => {
+    const hist = [spesa({ amount: 300, date: dateInMonth(-1, 10) }), spesa({ amount: 3000, date: dateInMonth(-2, 10) }), spesa({ amount: 300, date: dateInMonth(-3, 10) })];
+    const f = forecastMonth(hist, { now: nowAt(1) });
+    assert.ok(f.dailyRateHistory < 12, `ritmo storico ${f.dailyRateHistory} (la media sarebbe ~40)`);
+  });
+  test("l'ammortamento pesa nella parte certa ma non nel ritmo di spesa", () => {
+    const f = forecastMonth([spesa({ amount: 1200, am: 12, date: dateInMonth(-1, 1) })], { now: nowAt(10) });
+    assert.equal(f.floor, 100); assert.equal(f.dailyRate, 0); assert.equal(f.committed, 100);
+  });
+  test("le voci datate nel futuro restano nella parte certa ma non misurano il ritmo", () => {
+    const f = forecastMonth([spesa({ amount: 100, date: dateInMonth(0, 28) })], { now: nowAt(10) });
+    assert.equal(f.floor, 100); assert.equal(f.spentOneOff, 100); assert.equal(f.dailyRateCurrent, 0);
+  });
+  test("la parte certa coincide con monthTotal del mese", () => {
+    const data = [spesa({ amount: 800, date: dateInMonth(-4, 1), recur: "Mensile", nature: "fisso" }), spesa({ amount: 60, date: dateInMonth(0, 5) }), spesa({ amount: 1200, am: 12, date: dateInMonth(-2, 1) })];
+    assert.equal(forecastMonth(data, { now: nowAt(10) }).floor, monthTotal(data, currentMonthKey()));
+  });
+  test("la fascia contiene la stima e non scende sotto la parte certa", () => {
+    const data = [-1, -2, -3].map((m, i) => spesa({ amount: 200 + i * 150, date: dateInMonth(m, 10) })).concat(spesa({ amount: 80, date: dateInMonth(0, 3) }));
+    const f = forecastMonth(data, { now: nowAt(12) });
+    assert.ok(f.low <= f.projectedSpend && f.projectedSpend <= f.high);
+    assert.ok(f.low >= f.floor);
+  });
+  test("saldo previsto = entrate attese − spesa prevista", () => {
+    const f = forecastMonth([spesa({ amount: 100, date: dateInMonth(0, 5) })], { now: nowAt(10), fixedIncome: 2000 });
+    assert.ok(f.hasIncome); near(f.projectedBalance, 2000 - f.projectedSpend);
+  });
+  test("più storico = più affidabilità", () => {
+    const one = forecastMonth([spesa({ amount: 100, date: dateInMonth(-1, 5) })], { now: nowAt(12) });
+    const three = forecastMonth([-1, -2, -3].map(m => spesa({ amount: 100, date: dateInMonth(m, 5) })), { now: nowAt(12) });
+    assert.equal(one.confidence, "media"); assert.equal(three.confidence, "alta");
+  });
+});
+
+// ── Simulatore what-if ──
+describe("simulateExpense", () => {
+  const now = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 10); };
+  const ctx = (o = {}) => ({ now: now(), ...o });
+
+  test("importo non valido → null", () => {
+    for (const a of [0, -5, "abc", NaN, undefined]) assert.equal(simulateExpense([], { amount: /** @type {any} */ (a) }, ctx()), null);
+  });
+  test("una tantum: pesa l'importo pieno su spesa e saldo previsti", () => {
+    const sim = simulateExpense([], { amount: 500 }, ctx({ fixedIncome: 2000 }));
+    assert.equal(sim.charge, 500);
+    assert.equal(sim.after.projectedSpend, sim.before.projectedSpend + 500);
+    assert.equal(sim.after.projectedBalance, sim.before.projectedBalance - 500);
+  });
+  test("a rate: pesa la quota mensile e distribuisce l'importo sui mesi", () => {
+    const sim = simulateExpense([], { amount: 600, installments: 6 }, ctx());
+    assert.equal(sim.charge, 100); assert.equal(sim.schedule.length, 6);
+    assert.equal(sim.schedule.reduce((s, x) => s + x.charge, 0), 600);
+    assert.equal(sim.after.projectedSpend, sim.before.projectedSpend + 100);
+  });
+  test("non modifica i dati reali", () => {
+    const data = [spesa({ amount: 50, date: dateInMonth(0, 3) })]; const snap = JSON.stringify(data);
+    simulateExpense(data, { amount: 999 }, ctx());
+    assert.equal(JSON.stringify(data), snap);
+  });
+  test("tasso di risparmio prima/dopo", () => {
+    const sim = simulateExpense([], { amount: 500 }, ctx({ fixedIncome: 2000 }));
+    assert.equal(sim.rate.before, 100); assert.equal(sim.rate.after, 75);
+  });
+  test("senza entrate non inventa saldo né tasso", () => {
+    const sim = simulateExpense([], { amount: 300 }, ctx());
+    assert.equal(sim.hasIncome, false); assert.equal(sim.rate.before, null); assert.equal(sim.level, "ok");
+  });
+  test("budget variabile: residuo prima/dopo e sforamento", () => {
+    const data = [spesa({ amount: 100, date: dateInMonth(0, 5), nature: "variabile" })];
+    const sim = simulateExpense(data, { amount: 500 }, ctx({ varBudget: 400 }));
+    assert.equal(sim.variable.residualBefore, 300); assert.equal(sim.variable.residualAfter, -200);
+    assert.equal(sim.level, "over"); assert.ok(sim.reasons.some(r => /variabile/.test(r)));
+  });
+  test("una spesa fissa non consuma il budget variabile", () => {
+    const sim = simulateExpense([], { amount: 500, nature: "fisso" }, ctx({ varBudget: 400 }));
+    assert.equal(sim.variable.residualAfter, sim.variable.residualBefore);
+  });
+  test("budget di categoria: residuo e sforamento", () => {
+    const data = [spesa({ cat: "Svago", amount: 60, date: dateInMonth(0, 4) })];
+    const sim = simulateExpense(data, { amount: 50, cat: "Svago" }, ctx({ catBudgets: { Svago: 100 } }));
+    assert.equal(sim.category.residualBefore, 40); assert.equal(sim.category.residualAfter, -10);
+    assert.equal(sim.level, "over");
+  });
+  test("verdetto 'attenzione' quando il risparmio scende sotto il 10%", () => {
+    const sim = simulateExpense([], { amount: 1850 }, ctx({ fixedIncome: 2000 }));
+    assert.equal(sim.level, "warn");
+  });
+  test("verdetto 'sfora' quando il saldo diventa negativo", () => {
+    const sim = simulateExpense([], { amount: 2500 }, ctx({ fixedIncome: 2000 }));
+    assert.equal(sim.level, "over"); assert.ok(sim.after.projectedBalance < 0);
+  });
+  test("verdetto 'ok' per una spesa piccola", () => {
+    assert.equal(simulateExpense([], { amount: 50 }, ctx({ fixedIncome: 2000 })).level, "ok");
+  });
+  test("mesi di risparmio necessari = importo / risparmio medio storico", () => {
+    const data = [-1, -2, -3].map(m => spesa({ amount: 1000, date: dateInMonth(m, 10) }));
+    const sim = simulateExpense(data, { amount: 500 }, ctx({ fixedIncome: 2000 }));
+    assert.equal(sim.avgSaving, 1000); assert.equal(sim.monthsToRecover, 0.5);
   });
 });

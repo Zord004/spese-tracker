@@ -1,6 +1,9 @@
-import { totalAmortizedThisMonth, categoryBreakdown, getCategoryById, totalRecurringMonthly, totalIncomeThisMonth, isIncome, isExpense, monthComparison, variableSpentThisMonth, balanceProjection, categoryBudgetStatus, monthTotal } from "../models.js";
+import { totalAmortizedThisMonth, categoryBreakdown, getCategoryById, totalRecurringMonthly, totalIncomeThisMonth, isIncome, isExpense, monthComparison, variableSpentThisMonth, categoryBudgetStatus, monthTotal, forecastMonth } from "../models.js";
 import { escapeHtml, formatCurrency, formatDate, currentMonthKey } from "../utils.js";
 import { attachSwipe, swipeWrap } from "../swipe.js";
+import { groupBlocks } from "../layout.js";
+import { forecastSummaryHtml } from "./forecast.js";
+import { setAnalyticsTab } from "./analytics.js";
 
 export function renderHome(container, expenses, { onEditExpense, onDelete, onClone, onQuickAmount, budget, varBudget, catBudgets, income, onNavigate }) {
   const amort = totalAmortizedThisMonth(expenses);
@@ -12,7 +15,7 @@ export function renderHome(container, expenses, { onEditExpense, onDelete, onClo
   const comp = monthComparison(expenses);
   const incomeMonth = totalIncomeThisMonth(expenses);
   const totalIncomeM = income + incomeMonth;
-  const proj = balanceProjection(expenses, income);
+  const fc = forecastMonth(expenses, { fixedIncome: income });
 
   let deltaHtml = "";
   if (comp.previous > 0) {
@@ -77,26 +80,10 @@ export function renderHome(container, expenses, { onEditExpense, onDelete, onClo
       </div>`;
   }
 
-  // Card proiezione saldo fine mese (solo se conosciamo un'entrata)
-  let projCard = "";
-  if (proj.incomeExpected > 0) {
-    const b = proj.projectedBalance;
-    projCard = `
-      <div class="pad"><div class="sec-head"><span class="sec-title">Proiezione fine mese</span></div></div>
-      <div class="card pad-card">
-        <div class="proj">
-          <div>
-            <div class="eyebrow">Saldo previsto</div>
-            <div class="proj-fig tnum" style="color:${b >= 0 ? "var(--credit)" : "var(--debit)"}">${b >= 0 ? "+" : ""}${formatCurrency(b)}</div>
-          </div>
-          <div class="proj-side">
-            <div>Entrate <b class="tnum">${formatCurrency(proj.incomeExpected)}</b></div>
-            <div>Spese finora <b class="tnum">${formatCurrency(proj.spentSoFar)}</b></div>
-            ${proj.upcoming > 0 ? `<div>Ancora da pagare <b class="tnum">${formatCurrency(proj.upcoming)}</b></div>` : ""}
-          </div>
-        </div>
-      </div>`;
-  }
+  // Card previsione di fine mese (spesa prevista = parte certa + stima dalle abitudini)
+  const projCard = fc.projectedSpend > 0 ? `
+      <div class="pad"><div class="sec-head"><span class="sec-title">Previsione fine mese</span><button class="sec-link" data-nav="analytics" data-tab="forecast">Dettaglio →</button></div></div>
+      <div class="card pad-card">${forecastSummaryHtml(fc)}</div>` : "";
 
   container.innerHTML = `
     <div class="statement">
@@ -155,9 +142,10 @@ export function renderHome(container, expenses, { onEditExpense, onDelete, onClo
     `}
   `;
 
-  container.querySelectorAll("[data-nav]").forEach(el => el.addEventListener("click", () => onNavigate(el.dataset.nav)));
+  container.querySelectorAll("[data-nav]").forEach(el => el.addEventListener("click", () => { if (el.dataset.tab) setAnalyticsTab(el.dataset.tab); onNavigate(el.dataset.nav); }));
   const swipes = container.querySelector(".row-swipes");
   if (swipes) attachSwipe(swipes, { onEdit: onEditExpense, onDelete, onClone, onQuickAmount });
+  groupBlocks(container);
 }
 
 export function rowInner(e) {

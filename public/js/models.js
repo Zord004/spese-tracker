@@ -6,6 +6,8 @@
  * @typedef {import("./types.js").BudgetStatus} BudgetStatus
  * @typedef {import("./types.js").Projection} Projection
  * @typedef {import("./types.js").CatBudgets} CatBudgets
+ * @typedef {import("./types.js").Forecast} Forecast
+ * @typedef {import("./types.js").Simulation} Simulation
  */
 import { getCat } from "./catalog.js";
 import { monthKey, addMonths, currentMonthKey, currentYear } from "./utils.js";
@@ -218,9 +220,8 @@ export function categoryBudgetStatus(expenses, budgets = {}) {
 
 // Proiezione del saldo a fine mese: prende quanto già speso/incassato nel mese
 // e aggiunge le ricorrenti/fisse che devono ancora scattare.
-/** @param {Expense[]} expenses @param {number} [fixedIncome] @returns {Projection} */
-export function balanceProjection(expenses, fixedIncome = 0) {
-  const mk = currentMonthKey();
+/** @param {Expense[]} expenses @param {number} [fixedIncome] @param {string} [mk] mese (default: corrente) @returns {Projection} */
+export function balanceProjection(expenses, fixedIncome = 0, mk = currentMonthKey()) {
   const exps = expenses.filter(isExpense);
   const isRecurring = e => e.recur && e.recur !== "Nessuna";
   const incomeEntries = expenses.filter(isIncome).reduce((s, e) => s + monthlyIncomeChargeFor(e, mk), 0);
@@ -246,4 +247,168 @@ export function savingsRateTrend(expenses, fixedIncome = 0, n = 6) {
     out.push({ mk, rate, income, spent });
   }
   return out;
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// Previsione di fine mese (forecasting)
+// ─────────────────────────────────────────────────────────────
+// Totale previsto = parte CERTA (una tantum già registrate + ricorrenti + quote
+// di ammortamento: la stessa regola di monthTotal) + parte STIMATA (ritmo
+// giornaliero di spesa discrezionale × giorni che mancano).
+// Il ritmo mescola il passo del mese corrente con la media storica: all'inizio
+// del mese pesa lo storico, a fine mese pesa il mese in corso.
+// Lo storico usa la mediana (con ≥3 mesi) così un acquisto eccezionale non
+// gonfia la stima.
+
+const isOneOff = e => isExpense(e) && !(e.recur && e.recur !== "Nessuna") && (Math.trunc(Number(e.am)) || 1) <= 1;
+const sum = a => a.reduce((s, x) => s + x, 0);
+const mean = a => a.length ? sum(a) / a.length : 0;
+const median = a => { const s = [...a].sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0; };
+const stdev = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(sum(a.map(x => (x - m) ** 2)) / (a.length - 1)); };
+const mkOf = (y, m0) => `${y}-${String(m0 + 1).padStart(2, "0")}`;
+
+/**
+ * @param {Expense[]} expenses
+ * @param {{fixedIncome?: number, now?: Date, historyMonths?: number}} [opts]
+ * @returns {Forecast}
+ */
+export function forecastMonth(expenses, { fixedIncome = 0, now = new Date(), historyMonths = 6 } = {}) {
+  const y = now.getFullYear(), m0 = now.getMonth();
+  const mk = mkOf(y, m0);
+  const dim = new Date(y, m0 + 1, 0).getDate();
+  const day = Math.min(now.getDate(), dim);
+  const daysLeft = dim - day;
+  const today = `${mk}-${String(day).padStart(2, "0")}`;
+
+  const base = balanceProjection(expenses, fixedIncome, mk);
+  const floor = base.projectedExpenses;                       // parte certa del mese
+  const oneOffs = expenses.filter(isOneOff);
+  const spentOneOff = sum(oneOffs.filter(e => monthKey(e.date) === mk).map(e => e.amount));
+  // Il "passo" del mese conta solo ciò che è già avvenuto (le voci datate nel futuro
+  // sono già nella parte certa ma non misurano il ritmo).
+  const toDate = sum(oneOffs.filter(e => monthKey(e.date) === mk && String(e.date).slice(0, 10) <= today).map(e => e.amount));
+
+  // Storico: mesi completi precedenti, a partire dal primo mese con una spesa una tantum
+  const firstMk = oneOffs.map(e => monthKey(e.date)).filter(k => k < mk).sort()[0];
+  const history = [];
+  if (firstMk) {
+    for (let i = historyMonths; i >= 1; i--) {
+      const d = new Date(y, m0 - i, 1), k = mkOf(d.getFullYear(), d.getMonth());
+      if (k < firstMk) continue;
+      history.push({ mk: k, days: new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(),
+        oneOff: sum(oneOffs.filter(e => monthKey(e.date) === k).map(e => e.amount)) });
+    }
+  }
+  const rates = history.map(h => h.oneOff / h.days);
+  const histRate = history.length ? (history.length >= 3 ? median(rates) : mean(rates)) : null;
+  const curRate = day > 0 ? toDate / day : 0;
+  const w = histRate == null ? 1 : day / dim;                 // peso del mese in corso
+  const dailyRate = w * curRate + (1 - w) * (histRate ?? 0);
+  const expectedRemaining = dailyRate * daysLeft;
+
+  // Fascia di incertezza: dalla variabilità storica, oppure ±35% se lo storico non basta
+  const band = history.length >= 2
+    ? stdev(history.map(h => h.oneOff)) * Math.sqrt(daysLeft / dim)
+    : expectedRemaining * 0.35;
+  const projectedSpend = floor + expectedRemaining;
+  const low = floor + Math.max(0, expectedRemaining - band);
+  const high = floor + expectedRemaining + band;
+
+  /** @type {"alta"|"media"|"bassa"} */
+  const confidence = history.length >= 3 && day >= 7 ? "alta" : (history.length >= 1 || day >= 10) ? "media" : "bassa";
+  const variableNow = sum(expenses.filter(e => isExpense(e) && e.nature !== "fisso").map(e => monthlyChargeFor(e, mk)));
+
+  return {
+    mk, daysInMonth: dim, dayOfMonth: day, daysLeft,
+    floor, committed: floor - spentOneOff, spentOneOff,
+    dailyRate, dailyRateCurrent: curRate, dailyRateHistory: histRate,
+    expectedRemaining, projectedSpend, low, high, confidence, history,
+    incomeExpected: base.incomeExpected, hasIncome: base.incomeExpected > 0,
+    projectedBalance: base.incomeExpected - projectedSpend,
+    variableNow, projectedVariable: variableNow + expectedRemaining,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Simulatore "what-if": impatto di una spesa ipotetica
+// ─────────────────────────────────────────────────────────────
+// La spesa ipotetica è trattata come un movimento vero (stessa regola mensile),
+// quindi i numeri sono coerenti con tutto il resto dell'app. Una tantum = importo
+// pieno questo mese; a rate = quota mensile per N mesi (come un ammortamento).
+const rateOf = (income, spend) => income > 0 ? ((income - spend) / income) * 100 : null;
+
+/**
+ * @param {Expense[]} expenses
+ * @param {{amount:number, installments?:number, cat?:string, nature?:"variabile"|"fisso"}} scenario
+ * @param {{fixedIncome?:number, varBudget?:number, catBudgets?:CatBudgets, now?:Date, historyMonths?:number}} [ctx]
+ * @returns {Simulation|null} null se l'importo non è valido
+ */
+export function simulateExpense(expenses, scenario, { fixedIncome = 0, varBudget = 0, catBudgets = {}, now = new Date(), historyMonths = 6 } = {}) {
+  const amount = Number(scenario?.amount);
+  if (!(amount > 0) || !Number.isFinite(amount)) return null;
+  const months = Math.min(120, Math.max(1, Math.trunc(Number(scenario.installments)) || 1));
+  const nature = scenario.nature === "fisso" ? "fisso" : "variabile";
+  const cat = scenario.cat || "";
+
+  const before = forecastMonth(expenses, { fixedIncome, now, historyMonths });
+  const mk = before.mk;
+  /** @type {Expense} */
+  const hyp = { type: "spesa", name: "Simulazione", amount, date: `${mk}-${String(before.dayOfMonth).padStart(2, "0")}`,
+    cat: cat || "Altro", am: months, recur: "Nessuna", nature };
+  const charge = monthlyChargeFor(hyp, mk);
+  const schedule = getAmortizationMonths(hyp).map(k => ({ mk: k, charge: monthlyChargeFor(hyp, k) }));
+  const varCharge = nature === "fisso" ? 0 : charge;
+
+  const after = {
+    projectedSpend: before.projectedSpend + charge, low: before.low + charge, high: before.high + charge,
+    projectedBalance: before.projectedBalance - charge, projectedVariable: before.projectedVariable + varCharge,
+  };
+  const income = before.incomeExpected;
+  const rate = { before: rateOf(income, before.projectedSpend), after: rateOf(income, after.projectedSpend) };
+
+  const variable = varBudget > 0 ? {
+    limit: varBudget,
+    residualBefore: varBudget - before.variableNow, residualAfter: varBudget - before.variableNow - varCharge,
+    projectedResidualBefore: varBudget - before.projectedVariable, projectedResidualAfter: varBudget - after.projectedVariable,
+  } : null;
+
+  const catLimit = cat ? Number(catBudgets[cat]) || 0 : 0;
+  let category = null;
+  if (catLimit > 0) {
+    const spent = sum(expenses.filter(e => isExpense(e) && (e.cat || "Altro") === cat).map(e => monthlyChargeFor(e, mk)));
+    category = { id: cat, limit: catLimit, spentBefore: spent, spentAfter: spent + charge, residualBefore: catLimit - spent, residualAfter: catLimit - spent - charge };
+  }
+
+  // Risparmio medio mensile storico (mesi completi con entrate note) → tempo per "recuperare" la spesa
+  const firstAny = expenses.map(e => monthKey(e.date)).sort()[0];
+  const savings = [];
+  for (let i = historyMonths; i >= 1; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1), k = mkOf(d.getFullYear(), d.getMonth());
+    if (!firstAny || k < firstAny) continue;
+    const inc = fixedIncome + sum(expenses.filter(isIncome).map(e => monthlyIncomeChargeFor(e, k)));
+    if (inc > 0) savings.push(inc - monthTotal(expenses, k));
+  }
+  const avgSaving = savings.length ? mean(savings) : null;
+  const monthsToRecover = avgSaving != null && avgSaving > 0 ? amount / avgSaving : null;
+
+  // Verdetto
+  /** @type {string[]} */ const reasons = [];
+  let level = /** @type {"ok"|"warn"|"over"} */ ("ok");
+  const bump = (l, msg) => { reasons.push(msg); if (l === "over" || level === "ok") level = l === "over" ? "over" : (level === "over" ? "over" : "warn"); };
+  if (before.hasIncome) {
+    if (after.projectedBalance < 0) bump("over", "Il saldo previsto a fine mese diventa negativo.");
+    else if (rate.after != null && rate.after < 10) bump("warn", "Il tasso di risparmio previsto scende sotto il 10%.");
+  }
+  if (variable) {
+    if (variable.residualAfter < 0) bump("over", "Superi il limite di spesa variabile del mese.");
+    else if (variable.residualAfter < variable.limit * 0.15) bump("warn", "Resta meno del 15% del budget variabile.");
+  }
+  if (category) {
+    if (category.residualAfter < 0) bump("over", `Superi il budget della categoria ${cat}.`);
+    else if (category.residualAfter < category.limit * 0.15) bump("warn", `Resta meno del 15% del budget ${cat}.`);
+  }
+
+  return { amount, installments: months, charge, schedule, before, after, rate, variable, category,
+    hasIncome: before.hasIncome, avgSaving, monthsToRecover, level, reasons };
 }

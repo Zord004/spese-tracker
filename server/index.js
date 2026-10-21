@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { createRequire } from "module";
+import { readFileSync } from "fs";
 
 const require = createRequire(import.meta.url);
 const { version: APP_VERSION } = require("../package.json");
@@ -83,6 +84,13 @@ app.use(express.json({ limit: "16kb" }));
 app.use((req, res, next) => { if (req.path === "/" || req.path.endsWith(".html") || req.path.endsWith("sw.js")) res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate"); next(); });
 // Serve SOLO gli asset client in public/: il codice del server, i test e i file
 // di configurazione restano fuori dalla radice web e non sono raggiungibili.
+// Il service worker riceve la versione dell'app al posto del segnaposto: a ogni release il
+// file cambia, quindi i browser installano la nuova versione e scartano la cache vecchia.
+const SW_SOURCE = readFileSync(join(__dirname, "../public/sw.js"), "utf8");
+app.get("/sw.js", (req, res) => {
+  res.type("application/javascript").set("Cache-Control", "no-cache, no-store, must-revalidate")
+    .send(SW_SOURCE.replaceAll("__APP_VERSION__", APP_VERSION));
+});
 app.use(express.static(join(__dirname, "../public"), { dotfiles: "deny" }));
 
 // ─────────────────────────────────────────────
