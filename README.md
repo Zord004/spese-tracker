@@ -1,17 +1,12 @@
 # Spese — conto personale
 
-[![CI](https://github.com/Zord004/spese-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Zord004/spese-tracker/actions/workflows/ci.yml)
-![Node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)
-![PWA](https://img.shields.io/badge/PWA-installabile-1c3d5c)
-![Versione](https://img.shields.io/badge/versione-9.8.0-9a7c3b)
-
 Tracker di spese personali che usa **Notion come database**. Interfaccia web
-installabile come app (PWA), utilizzabile offline, con estetica sobria da
-estratto conto. Backend Node.js/Express, frontend in JavaScript senza framework.
+installabile come app (PWA), utilizzabile offline. 
+Backend Node.js/Express, frontend in JavaScript senza framework.
 
 L'idea: registri spese ed entrate da un'unica app veloce sul telefono o sul PC,
 i dati vivono nel tuo Notion (dove puoi sempre consultarli e correggerli), e
-l'app ci costruisce sopra bilanci, grafici e un report per il commercialista.
+l'app ci costruisce sopra bilanci, grafici e un report.
 
 ## Funzionalità
 
@@ -35,9 +30,7 @@ l'app ci costruisce sopra bilanci, grafici e un report per il commercialista.
   come finestre centrate e azioni sulle righe al passaggio del mouse.
 - **Analisi**: ripartizione per categoria (con filtro per mese), andamento a 6
   mesi, tasso di risparmio, con tooltip informativi al tocco su ogni grafico.
-- **Report per il commercialista** (730/Unico) con detraibilità e percentuali.
-- **Multi-valuta**: registri in valuta estera, l'app converte in euro al tasso
-  del giorno.
+- **Multi-valuta**: registri in valuta estera, l'app converte in euro al tasso del giorno.
 - **Tema** chiaro, scuro o automatico secondo il sistema.
 - **Modifica rapida**: un tap sull'importo di una riga lo corregge al volo.
 - **Swipe** sulle righe per clonare o eliminare al volo.
@@ -51,12 +44,6 @@ mese pesa lo storico, a fine mese pesa il mese in corso. È una **stima statisti
 non una garanzia**: un acquisto imprevisto la supera, e con meno di 3 mesi di
 storico l'affidabilità è segnalata come media o bassa. Il simulatore usa le stesse
 regole mensili del resto dell'app, quindi i numeri sono coerenti tra le schermate.
-
-## Anteprima
-
-| Conto | Analisi | Tema scuro |
-|-------|---------|-----------|
-| ![Conto](docs/screenshots/conto.png) | ![Analisi](docs/screenshots/analisi.png) | ![Tema scuro](docs/screenshots/scuro.png) |
 
 ## Avvio rapido
 
@@ -109,15 +96,6 @@ l'app sia utile.
 > legge dallo schema. Dopo averle cambiate, usa *Altro → Dati → "Aggiorna schema
 > da Notion"* invece di riavviare il server.
 
-### 3. Template (opzionale)
-
-Per evitare di ricreare il database a mano puoi partire da un template già
-pronto con le colonne corrette:
-
-<!-- Inserisci qui il link a una tua pagina Notion pubblica condivisibile:
-     "Duplica questo template nel tuo workspace e copia il suo ID". -->
-`(link al template Notion da inserire)`
-
 ## Comandi utili
 
 ```bash
@@ -145,20 +123,8 @@ docker compose up --build
 I piani gratuiti mettono l'app in pausa dopo inattività: la prima apertura dopo
 la pausa può richiedere qualche secondo.
 
-## Sicurezza
-
-L'app è pensata per uso personale, protetta da HTTP Basic Auth su HTTPS.
-In produzione l'autenticazione è obbligatoria, i tentativi di accesso sono
-limitati (anti brute-force), la CSP è restrittiva e il codice del server non è
-servito pubblicamente. Dettagli nel `CHANGELOG.md` (v9.5.0).
 
 ## Cosa non è supportato (e perché)
 
 - **Multiutente**: l'app è personale (un solo database Notion, una credenziale).
 - **Background Sync API** e **feedback aptico**: non supportati da Safari su iOS.
-
-## Note tecniche
-
-- Struttura: `public/` (client), `server/` (Express), `test/` (test).
-- Nessun framework frontend; grafici in SVG disegnati a mano.
-- Cronologia completa delle versioni: [CHANGELOG.md](CHANGELOG.md).
